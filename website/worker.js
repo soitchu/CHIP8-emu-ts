@@ -86,6 +86,15 @@ addEventListener("message", (event) => {
       currentOffscreenCanvas.width = 64 * config.scale;
       currentOffscreenCanvas.height = 32 * config.scale;
       currentEmulator.printDisplay();
+
+      // Letting the OffscreenCanvas do its thing
+      // without blocking this thread
+      setTimeout(() => {
+        // Resume the emulator
+        Atomics.store(currentEmulator.signals, currentEmulator.STATE_SIGNAL, 0);
+        currentEmulator.execute();
+      }, 0);
+
     }
   } else if(data.action === "resume") {
     currentEmulator.execute();

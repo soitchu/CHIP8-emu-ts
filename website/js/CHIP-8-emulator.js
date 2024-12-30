@@ -2,6 +2,7 @@
 class Chips8Emulator {
   SIXTY_HZ = 1000 / 60;
   signals;
+  STATE_SIGNAL = 0;
   ram = new Uint8Array(4096);
   registers = new Uint8Array(16);
   stack = new Uint16Array(16);
@@ -372,7 +373,7 @@ class Chips8Emulator {
   }
   async readKey() {
     while (true) {
-      if (Atomics.load(this.signals, 0) === 1 /* PAUSED */) {
+      if (Atomics.load(this.signals, this.STATE_SIGNAL) === 1 /* PAUSED */) {
         this.pc -= 2;
         return;
       }
@@ -591,7 +592,7 @@ class Chips8Emulator {
   }
   async execute() {
     while (this.pc < this.fileEnd && !this.shouldHalt) {
-      if (this.signals[0] === 1 /* PAUSED */) {
+      if (Atomics.load(this.signals, this.STATE_SIGNAL) === 1 /* PAUSED */) {
         break;
       }
       const instr = this.getCurrentInstruction();
