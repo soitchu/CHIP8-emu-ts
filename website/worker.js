@@ -30,7 +30,7 @@ addEventListener("message", (event) => {
 
   if (data.action === "init") {
     /** @type {OffscreenCanvas} */
-    const { offscreenCanvas, scale, program, disableGhosting, inputSharedBuffer } = data;
+    const { offscreenCanvas, scale, program, disableGhosting, inputSharedBuffer, signalBuffer } = data;
     const ctx = offscreenCanvas.getContext("2d");
 
     config.scale = scale;
@@ -67,6 +67,7 @@ addEventListener("message", (event) => {
       input: inputHandler,
       restartOnEnd: false,
       disableGhosting,
+      signalBuffer
     });
 
     // Start the emulator
@@ -84,6 +85,9 @@ addEventListener("message", (event) => {
       // Resize the offscreen canvas
       currentOffscreenCanvas.width = 64 * config.scale;
       currentOffscreenCanvas.height = 32 * config.scale;
+      currentEmulator.printDisplay();
     }
+  } else if(data.action === "resume") {
+    currentEmulator.execute();
   }
 });

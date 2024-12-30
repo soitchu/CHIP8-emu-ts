@@ -120,6 +120,8 @@
   const inputSharedBuffer = new SharedArrayBuffer(
     16 * Uint8Array.BYTES_PER_ELEMENT
   );
+  const signalBuffer = new SharedArrayBuffer(1 * Uint8Array.BYTES_PER_ELEMENT);
+  const signalArray = new Uint8Array(signalBuffer);
   const inputArray = new Uint8Array(inputSharedBuffer);
   const offscreen = display.transferControlToOffscreen();
   let worker = null;
@@ -157,6 +159,7 @@
         program,
         disableGhosting: false,
         inputSharedBuffer,
+        signalBuffer,
       },
       [offscreen]
     );
@@ -165,12 +168,31 @@
   loadProgram("games", programs.games[12]);
 
   function changeScale(newScale) {
+    // Pause the emulator so the message can be received by the worker
+    signalArray[0] = 1;
+
+    // Update the scale and send the new configuration to the worker
     scale = newScale;
     worker.postMessage({
       action: "config",
       config: {
         scale: newScale,
       },
+    });
+
+    // Resume the emulator after the configuration has been updated
+    // Since the messages are queued, the configuration will be updated before 
+    // the emulator is resumed
+    resume();
+  }
+
+  function resume() {
+    // Resume the emulator
+    signalArray[0] = 0;
+
+    // Send the resume signal to the worker
+    worker.postMessage({
+      action: "resume",
     });
   }
 

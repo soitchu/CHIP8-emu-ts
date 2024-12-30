@@ -33,6 +33,7 @@ export class Input {
       // running the emulator for input events.
       this.activeKeys = new Uint8Array(sharedArrayBuffer);
       this.isUsingSharedArrayBuffer = true;
+      console.info("Using SharedArrayBuffer for input");
     }
   }
 

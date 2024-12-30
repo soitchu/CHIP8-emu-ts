@@ -6,7 +6,13 @@ export interface Display {
   flush(displayState: Uint8Array, width: number): Promise<void>;
 }
 
+enum EmuState {
+  PAUSED = 1,
+  RUNNING = 0,
+}
+
 export interface EmuConfig {
+  signalBuffer?: SharedArrayBuffer;
   restartOnEnd?: boolean;
   display?: Display;
   input?: Input;
@@ -16,6 +22,22 @@ export interface EmuConfig {
 
 export class Chips8Emulator {
   SIXTY_HZ = 1000 / 60;
+
+  /**
+   * Since the emulator is essentially running an infinite loop, we can use
+   * a SharedArrayBuffer to communicate with the emulator.
+   * 
+   * This Uint8Array MUST be a SharedArrayBuffer. It only has one element, and
+   * if it is 1, then the emulator will pause after the next instruction, and if
+   * it is 0, then the emulator will continue running. If SharedArrayBuffer is not
+   * supported, then `pause` and `continue` methods will not work.
+   */
+  signals: Uint8Array;
+
+  /** 
+   * The index at which the state signal is stored
+   */
+  STATE_SIGNAL = 0;
 
   /**
    * 4KB of RAM
@@ -176,6 +198,18 @@ export class Chips8Emulator {
     // Set where the file ends
     this.fileEnd = this.pc + fileBinary.length;
 
+    if(!config.signalBuffer) {
+      console.warn("No signal buffer provided. The emulator will not be able to pause.");
+    }
+
+    if(!config.display) {
+      console.warn("No display provided. The emulator will not be able to draw to the screen.");
+    }
+
+    if(!config.input) {
+      console.warn("No input provided. The emulator will not be able to get input from the user.");
+    }
+
     // Apply the emulator configuration
     this.applyConfig(config);
   }
@@ -187,6 +221,10 @@ export class Chips8Emulator {
    */
   applyConfig(config: EmuConfig) {
     // Initialize display and input
+
+    if (config.signalBuffer) {
+      this.signals = new Uint8Array(config.signalBuffer);
+    }
 
     if (config.display) {
       this.display = config.display;
@@ -748,8 +786,17 @@ export class Chips8Emulator {
    * All execution stops until a key is pressed,
    * then the value of that key is stored in Vx.
    */
-  async readKey() {
+  async readKey(): Promise<number | undefined> {
     while (true) {
+      if(Atomics.load(this.signals, this.STATE_SIGNAL) === EmuState.PAUSED) {
+        // console.log("Emulator is paused. Waiting for it to continue."); 
+        // Can't execute this instruction since the emulator is paused
+        // so decrement the program counter by 2 to ensure this instruction
+        // can be executed when the emulator is resumed
+        this.pc -= 2;
+        return;
+      }
+
       for (let i = 0; i < 16; i++) {
         if (this.input.isActive(i)) {
           return i;
@@ -769,9 +816,15 @@ export class Chips8Emulator {
     const register = (instr & 0x0f00) >> 8;
     const key = await this.readKey();
 
+    
+
+    if(key === undefined) return false;
+
     this.addToInstrTrace(`LD V${register}, K`);
 
     this.registers[register] = key;
+
+    return true;
   }
 
   /**
@@ -1116,6 +1169,10 @@ export class Chips8Emulator {
    */
   async execute() {
     while (this.pc < this.fileEnd && !this.shouldHalt) {
+      if(Atomics.load(this.signals, this.STATE_SIGNAL) === EmuState.PAUSED) {
+        break;
+      }
+
       const instr = this.getCurrentInstruction();
       await this.executeInstruction(instr);
 

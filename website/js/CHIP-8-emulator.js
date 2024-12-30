@@ -1,6 +1,7 @@
-// CHIP-8/emulator/index.ts
+// CHIP-8/index.ts
 class Chips8Emulator {
   SIXTY_HZ = 1000 / 60;
+  signals;
   ram = new Uint8Array(4096);
   registers = new Uint8Array(16);
   stack = new Uint16Array(16);
@@ -112,9 +113,21 @@ class Chips8Emulator {
     this.ram.set(this.fonts, 0);
     this.ram.set(fileBinary, this.pc);
     this.fileEnd = this.pc + fileBinary.length;
+    if (!config.signalBuffer) {
+      console.warn("No signal buffer provided. The emulator will not be able to pause.");
+    }
+    if (!config.display) {
+      console.warn("No display provided. The emulator will not be able to draw to the screen.");
+    }
+    if (!config.input) {
+      console.warn("No input provided. The emulator will not be able to get input from the user.");
+    }
     this.applyConfig(config);
   }
   applyConfig(config) {
+    if (config.signalBuffer) {
+      this.signals = new Uint8Array(config.signalBuffer);
+    }
     if (config.display) {
       this.display = config.display;
     }
@@ -359,6 +372,10 @@ class Chips8Emulator {
   }
   async readKey() {
     while (true) {
+      if (Atomics.load(this.signals, 0) === 1 /* PAUSED */) {
+        this.pc -= 2;
+        return;
+      }
       for (let i = 0;i < 16; i++) {
         if (this.input.isActive(i)) {
           return i;
@@ -372,8 +389,11 @@ class Chips8Emulator {
   async readKeyIntoRegister(instr) {
     const register = (instr & 3840) >> 8;
     const key = await this.readKey();
+    if (key === undefined)
+      return false;
     this.addToInstrTrace(`LD V${register}, K`);
     this.registers[register] = key;
+    return true;
   }
   loadRegisterIntoDelayTimer(instr) {
     const register = (instr & 3840) >> 8;
@@ -571,6 +591,9 @@ class Chips8Emulator {
   }
   async execute() {
     while (this.pc < this.fileEnd && !this.shouldHalt) {
+      if (this.signals[0] === 1 /* PAUSED */) {
+        break;
+      }
       const instr = this.getCurrentInstruction();
       await this.executeInstruction(instr);
       if (this.stackPointer < 0)
