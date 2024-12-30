@@ -1,4 +1,7 @@
 <style>
+  body {
+    margin: 0;
+  }
   canvas {
     border: 1px solid black;
   }
@@ -181,6 +184,10 @@
     });
   }
 
+  window.addEventListener("resize", () => {
+    changeScale(Math.floor(window.innerWidth / 64));
+  });
+
   const keyMap = {
     1: 0x1,
     2: 0x2,
@@ -202,12 +209,11 @@
 
   // Send keyboard events to the worker
   window.addEventListener("keydown", (e) => {
-    inputArray[keyMap[e.key]] = 1;
+    Atomics.store(inputArray, keyMap[e.key], 1);
   });
 
   window.addEventListener("keyup", (e) => {
-    inputArray[keyMap[e.key]] = 0;
+    Atomics.store(inputArray, keyMap[e.key], 0);
   });
-</script>
 
-<script></script>
+</script>

@@ -30,6 +30,9 @@ class Input {
     }
   }
   isActive(key) {
+    if (this.isUsingSharedArrayBuffer) {
+      return Atomics.load(this.activeKeys, key) === 1;
+    }
     return this.activeKeys[key] === 1;
   }
   keyDown(event) {
@@ -37,14 +40,22 @@ class Input {
       return;
     }
     const keyAddress = this.keyMap[event];
-    this.activeKeys[keyAddress] = 1;
+    if (this.isUsingSharedArrayBuffer) {
+      Atomics.store(this.activeKeys, keyAddress, 1);
+    } else {
+      this.activeKeys[keyAddress] = 1;
+    }
   }
   keyUp(event) {
     if (!this.keyMap[event]) {
       return;
     }
     const keyAddress = this.keyMap[event];
-    this.activeKeys[keyAddress] = 0;
+    if (this.isUsingSharedArrayBuffer) {
+      Atomics.store(this.activeKeys, keyAddress, 0);
+    } else {
+      this.activeKeys[keyAddress] = 0;
+    }
   }
   registerEmulator(emu) {
     this.hasBeenRegistered = true;

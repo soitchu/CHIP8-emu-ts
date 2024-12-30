@@ -38,6 +38,10 @@ export class Input {
   }
 
   isActive(key: number): boolean {
+    if(this.isUsingSharedArrayBuffer) {
+      return Atomics.load(this.activeKeys, key) === 1;
+    }
+
     return this.activeKeys[key] === 1;
   }
 
@@ -47,7 +51,12 @@ export class Input {
     }
 
     const keyAddress = this.keyMap[event];
-    this.activeKeys[keyAddress] = 1;
+ 
+    if(this.isUsingSharedArrayBuffer) {
+      Atomics.store(this.activeKeys, keyAddress, 1);
+    } else {
+      this.activeKeys[keyAddress] = 1;
+    }
   }
 
   keyUp(event: string): void {
@@ -56,7 +65,12 @@ export class Input {
     }
 
     const keyAddress = this.keyMap[event];
-    this.activeKeys[keyAddress] = 0;
+
+    if(this.isUsingSharedArrayBuffer) {
+      Atomics.store(this.activeKeys, keyAddress, 0);
+    } else {
+      this.activeKeys[keyAddress] = 0;
+    }
   }
 
   registerEmulator(emu: Chips8Emulator) {
