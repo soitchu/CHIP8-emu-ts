@@ -45,3 +45,7 @@ canvas {
   position: absolute;
   transition-duration: 200ms;
 }
+
+.none {
+  display: none;
+}

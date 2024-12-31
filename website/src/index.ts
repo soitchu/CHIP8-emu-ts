@@ -135,9 +135,7 @@ display.style.transform = `translate(${
 const inputSharedBuffer = new SharedArrayBuffer(
   16 * Uint8Array.BYTES_PER_ELEMENT
 );
-const signalBuffer = new SharedArrayBuffer(
-  1 * Uint32Array.BYTES_PER_ELEMENT
-);
+const signalBuffer = new SharedArrayBuffer(1 * Uint32Array.BYTES_PER_ELEMENT);
 const signalArray = new Uint8Array(signalBuffer);
 const inputArray = new Uint8Array(inputSharedBuffer);
 const offscreen = display.transferControlToOffscreen();
@@ -212,9 +210,7 @@ function hexToRGBA(hex) {
 
   // Check the length of the hex code
   if (hex.length !== 6) {
-    throw new Error(
-      "Invalid hexadecimal color format. Use #RRGGBB."
-    );
+    throw new Error("Invalid hexadecimal color format. Use #RRGGBB.");
   }
 
   // Parse the RGB values
@@ -222,7 +218,6 @@ function hexToRGBA(hex) {
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
 
-  
   return [r, g, b];
 }
 
@@ -259,10 +254,53 @@ window.addEventListener("keyup", (e) => {
 function postMessage(data: WorkerPayload, transfer: Transferable[] = []) {
   // Pause the emulator if the message is a configuration change
   // The worker will handle the configuration change and resume the emulator
-  if(data.action === "config") pauseEmulator();
+  if (data.action === "config") pauseEmulator();
 
   worker.postMessage(data, transfer);
 }
+
+const customColors = [
+  {
+    name: "Palette #1",
+    primary: "#02343F",
+    secondary: "#F0EDCC",
+  },
+  {
+    name: "Palette #1 - Inverted",
+    primary: "#F0EDCC",
+    secondary: "#02343F",
+  },
+  {
+    name: "Palette #2",
+    primary: "#FFD662",
+    secondary: "#00539C",
+  },
+  {
+    name: "Palette #2 - Inverted",
+    primary: "#00539C",
+    secondary: "#FFD662",
+  },
+  {
+    name: "Palette #3",
+    primary: "#FFFFFF",
+    secondary: "#F95700",
+  },
+  {
+    name: "Palette #3 - Inverted",
+    primary: "#F95700",
+    secondary: "#FFFFFF",
+  },
+  {
+    name: "Palette #4",
+    primary: "#02343F",
+    secondary: "#F0EDCC",
+  },
+  {
+    name: "Palette #4 - Inverted",
+    primary: "#F0EDCC",
+    secondary: "#02343F",
+  }
+];
 
 let DMenu = new dropDownMenu(
   [
@@ -283,6 +321,12 @@ let DMenu = new dropDownMenu(
           text: "ROMs",
           iconID: "romIcon",
           open: "roms",
+          subMenu: true,
+        },
+        {
+          text: "Theme",
+          iconID: "themeIcon",
+          open: "theme",
           subMenu: true,
         },
         {
@@ -318,28 +362,66 @@ let DMenu = new dropDownMenu(
             });
           },
         },
+      ],
+    },
+    {
+      id: "theme",
+      selectableScene: true,
+      heading: {
+        text: "Theme",
+      },
+      items: [
+        ...customColors.map(({ primary, secondary, name }) => ({
+          text: name,
+          highlightable: true,
+          callback: () => {
+            postMessage({
+              action: "config",
+              config: {
+                primaryColor: hexToRGBA(primary),
+                secondaryColor: hexToRGBA(secondary),
+              },
+            });
+          },
+        })),
+        {
+          highlightable: true,
+          text: "Custom",
+          callback: () => {
+            const customColorPicker =
+              document.getElementsByClassName("custom-color");
+
+            for (let i = 0; i < customColorPicker.length; i++) {
+              customColorPicker[i].classList.remove("none");
+            }
+          },
+        },
         {
           text: "Primary Color",
           color: true,
+          id: "primaryColor",
+          classes: ["none", "custom-color"],
           onInput: function (event) {
             postMessage({
               action: "config",
               config: {
                 primaryColor: hexToRGBA(event.target.value),
-              }
+              },
             });
           },
         },
         {
           text: "Secondary Color",
           color: true,
+          id: "secondaryColor",
+          classes: ["none", "custom-color"],
           onInput: function (event) {
             postMessage({
               action: "config",
               config: {
                 secondaryColor: hexToRGBA(event.target.value),
-              }
-            } as WorkerPayload);
+              },
+            });
           },
         },
       ],
