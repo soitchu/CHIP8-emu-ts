@@ -25,7 +25,14 @@ export abstract class Display {
     this.WIDTH * this.HEIGHT
   );
 
+  /**
+   * Ghosting avoids flickers. Enabled by default. Set to false to disable.
+   */
   disableGhosting: boolean = false;
+
+  // Default colors
+  primaryColor: number[] = [0x8d, 0xc6, 0xff];
+  secondaryColor: number[] = [0x0, 0x0, 0x0];
 
   abstract draw(x: number, y: number, r: number, g: number, b: number): void;
   abstract clear(): void;
@@ -38,8 +45,8 @@ export abstract class Display {
   }
 
   async print(): Promise<void> {
-    const color1 = [0x8d, 0xc6, 0xff];
-    const color2 = [0x9f, 0xd3, 0xc7];
+    const primaryColor = this.primaryColor;
+    const secondaryColor = this.secondaryColor;
 
     this.clear();
 
@@ -48,7 +55,7 @@ export abstract class Display {
       const y = Math.floor(i / this.WIDTH);
       if (this.displayState[i] === 1) {
         // The pixel is on, so set the power level to max
-        this.draw(x, y, color1[0], color1[1], color1[2]);
+        this.draw(x, y, primaryColor[0], primaryColor[1], primaryColor[2]);
       } else {
         // The pixel is off, so decrease the power level (brightness) of the pixel
         this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.22);
@@ -69,9 +76,9 @@ export abstract class Display {
         this.draw(
           x,
           y,
-          color2[0] * normalizedPowerLevel,
-          color2[1] * normalizedPowerLevel,
-          color2[2] * normalizedPowerLevel
+          primaryColor[0] * normalizedPowerLevel + secondaryColor[0] * (1 - normalizedPowerLevel),
+          primaryColor[1] * normalizedPowerLevel + secondaryColor[1] * (1 - normalizedPowerLevel),
+          primaryColor[2] * normalizedPowerLevel + secondaryColor[2] * (1 - normalizedPowerLevel)
         );
       }
     }

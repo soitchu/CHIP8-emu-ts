@@ -104,7 +104,7 @@ class Chips8Emulator {
   input;
   instrTrace = [];
   debug = false;
-  disableGhosting = false;
+  currentExecutionPromise = null;
   constructor(fileBinary, config) {
     this.init(fileBinary, config);
   }
@@ -587,6 +587,21 @@ class Chips8Emulator {
   }
   genRandomByte() {
     return Math.floor(Math.random() * 256);
+  }
+  start() {
+    this.currentExecutionPromise = this.execute();
+  }
+  async gracefullyExit() {
+    if (this.currentExecutionPromise) {
+      await this.currentExecutionPromise;
+    }
+  }
+  async resume() {
+    console.log("Gracefully exiting");
+    await this.gracefullyExit();
+    console.log("Resuming");
+    Atomics.store(this.signals, this.STATE_SIGNAL, 0);
+    this.start();
   }
   async execute() {
     while (this.pc < this.fileEnd && !this.shouldHalt) {

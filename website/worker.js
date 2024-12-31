@@ -87,7 +87,7 @@ addEventListener("message", (event) => {
     Atomics.store(currentEmulator.signals, currentEmulator.STATE_SIGNAL, 0);
 
     // Start the emulator
-    currentEmulator.execute();
+    currentEmulator.start();
   } else if (data.action === "config") {
     if(currentEmulator === null) return;
 
@@ -109,13 +109,10 @@ addEventListener("message", (event) => {
       // without blocking this thread
       setTimeout(() => {
         // Resume the emulator
-        Atomics.store(currentEmulator.signals, currentEmulator.STATE_SIGNAL, 0);
-        currentEmulator.execute();
+        currentEmulator.resume();
       }, 0);
 
     }
-  } else if(data.action === "resume") {
-    currentEmulator.execute();
   } else if(data.action === "loadProgram") {
     console.log("Loading program");
     currentEmulator.init(data.program, {});
@@ -125,8 +122,25 @@ addEventListener("message", (event) => {
     // without blocking this thread
     setTimeout(() => {
       // Resume the emulator
-      Atomics.store(currentEmulator.signals, currentEmulator.STATE_SIGNAL, 0);
-      currentEmulator.execute();
+      currentEmulator.resume();
     }, 0);
+  } else if(data.action === "color") {
+    if(!currentDisplay) return;
+
+    if("primary" in data) {
+      currentDisplay.primaryColor = data.primary;
+    }
+
+    if("secondary" in data) {
+      currentDisplay.secondaryColor = data.secondary;
+    }
+    currentEmulator.display.print();
+
+    console.log("Colors updated", currentDisplay.primaryColor, currentDisplay.secondaryColor);
+    setTimeout(async () => {
+      // Resume the emulator
+      currentEmulator.resume();
+    }, 0);
+
   }
 });

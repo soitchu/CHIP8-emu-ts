@@ -154,9 +154,9 @@ export class Chips8Emulator {
   debug: boolean = false;
 
   /**
-   * Ghosting avoids flickers. Enabled by default. Set to false to disable.
+   * Current execution promise. Used to gracefully handle pausing
    */
-  disableGhosting: boolean = false;
+  currentExecutionPromise: Promise<void> | null = null;
 
   constructor(fileBinary: Uint8Array, config: EmuConfig) {
     this.init(fileBinary, config);
@@ -1122,6 +1122,25 @@ export class Chips8Emulator {
 
   genRandomByte() {
     return Math.floor(Math.random() * 256);
+  }
+
+  start() {
+    this.currentExecutionPromise = this.execute();
+  }
+
+  async gracefullyExit() {
+    if (this.currentExecutionPromise) {
+      await this.currentExecutionPromise;
+    }
+  }
+
+  async resume() {
+    console.log("Gracefully exiting");
+    await this.gracefullyExit();
+
+    console.log("Resuming");
+    Atomics.store(this.signals, this.STATE_SIGNAL, 0);
+    this.start();
   }
 
   /**

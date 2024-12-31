@@ -6,20 +6,22 @@ class Display {
   prevDisplay = new Uint8Array(this.WIDTH * this.HEIGHT);
   powerLevel = new Uint8Array(this.WIDTH * this.HEIGHT);
   disableGhosting = false;
+  primaryColor = [141, 198, 255];
+  secondaryColor = [0, 0, 0];
   reset() {
     this.displayState.fill(0);
     this.prevDisplay.fill(0);
     this.powerLevel.fill(0);
   }
   async print() {
-    const color1 = [141, 198, 255];
-    const color2 = [159, 211, 199];
+    const primaryColor = this.primaryColor;
+    const secondaryColor = this.secondaryColor;
     this.clear();
     for (let i = 0;i < this.displayState.length; i++) {
       const x = i % this.WIDTH;
       const y = Math.floor(i / this.WIDTH);
       if (this.displayState[i] === 1) {
-        this.draw(x, y, color1[0], color1[1], color1[2]);
+        this.draw(x, y, primaryColor[0], primaryColor[1], primaryColor[2]);
       } else {
         this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.22);
         if (this.prevDisplay[i] === 1) {
@@ -27,7 +29,7 @@ class Display {
         }
         const newPowerLevel = this.disableGhosting ? 0 : Math.floor(this.powerLevel[i]);
         const normalizedPowerLevel = newPowerLevel / 255;
-        this.draw(x, y, color2[0] * normalizedPowerLevel, color2[1] * normalizedPowerLevel, color2[2] * normalizedPowerLevel);
+        this.draw(x, y, primaryColor[0] * normalizedPowerLevel + secondaryColor[0] * (1 - normalizedPowerLevel), primaryColor[1] * normalizedPowerLevel + secondaryColor[1] * (1 - normalizedPowerLevel), primaryColor[2] * normalizedPowerLevel + secondaryColor[2] * (1 - normalizedPowerLevel));
       }
     }
     await this.flush();

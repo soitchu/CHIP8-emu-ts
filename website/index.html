@@ -147,7 +147,7 @@
         16 * Uint8Array.BYTES_PER_ELEMENT
       );
       const signalBuffer = new SharedArrayBuffer(
-        1 * Uint8Array.BYTES_PER_ELEMENT
+        1 * Uint32Array.BYTES_PER_ELEMENT
       );
       const signalArray = new Uint8Array(signalBuffer);
       const inputArray = new Uint8Array(inputSharedBuffer);
@@ -215,6 +215,28 @@
           Math.floor((container.offsetWidth - (isMenuOpen ? 300 : 0)) / 64),
           Math.floor(container.offsetHeight / 32)
         );
+      }
+
+      function hexToRGBA(hex) {
+        // Remove the '#' if present
+        if (hex.startsWith("#")) {
+          hex = hex.slice(1);
+        }
+
+        // Check the length of the hex code
+        if (hex.length !== 6) {
+          throw new Error(
+            "Invalid hexadecimal color format. Use #RRGGBB."
+          );
+        }
+
+        // Parse the RGB values
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+
+        
+        return [r, g, b];
       }
 
       function changeScale(newScale) {
@@ -326,15 +348,28 @@
                 text: "Primary Color",
                 color: true,
                 onInput: function (event) {
-                  console.log(event.target.value);
-                  // worker.postMessage({
-                  //   action: "config",
-                  //   config: {
-                  //     primaryColor: event.target.value,
-                  //   },
-                  // });
+                  pauseEmulator();
+
+                  // const
+
+                  worker.postMessage({
+                    action: "color",
+                    primary: hexToRGBA(event.target.value),
+                  });
                 },
-              }
+              },
+              {
+                text: "Secondary Color",
+                color: true,
+                onInput: function (event) {
+                  pauseEmulator();
+
+                  worker.postMessage({
+                    action: "color",
+                    secondary: hexToRGBA(event.target.value),
+                  });
+                },
+              },
             ],
           },
           {
@@ -350,7 +385,7 @@
                 classes: ["source", "clickable"],
                 callback: () => {
                   window.open("https://github.com/dmatlack/chip8/");
-                }
+                },
               },
               {
                 text: "Demos",
