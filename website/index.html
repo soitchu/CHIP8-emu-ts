@@ -4,11 +4,15 @@
   }
   canvas {
     border: 1px solid black;
+    image-rendering: pixelated;
   }
 </style>
+<link rel="stylesheet" href="./css/index.css" />
 
 <canvas width="64" height="32" id="display"> </canvas>
+<div id="menuCon"></div>
 
+<script src="https://cdn.jsdelivr.net/gh/soitchu/settings-menu/dist/index.js"></script>
 <script>
   const programs = {
     demos: [
@@ -119,7 +123,7 @@
   };
 
   const display = document.getElementById("display");
-  let scale = 20;
+  let scale = Math.floor((window.innerWidth - 300) / 64);
   const inputSharedBuffer = new SharedArrayBuffer(
     16 * Uint8Array.BYTES_PER_ELEMENT
   );
@@ -127,7 +131,10 @@
   const signalArray = new Uint8Array(signalBuffer);
   const inputArray = new Uint8Array(inputSharedBuffer);
   const offscreen = display.transferControlToOffscreen();
-  let worker = null;
+  let worker = new Worker("worker.js", {
+    type: "module",
+  });
+  let offscreenHasBeenTransferred = false;
 
   async function fetchProgram(url) {
     const response = await fetch(url);
@@ -150,29 +157,42 @@
     const program = await fetchProgram(programURL);
 
     // Initialize the worker with the offscreen canvas
-    worker = new Worker("worker.js", {
-      type: "module",
-    });
+    if (!offscreenHasBeenTransferred) {
+      offscreenHasBeenTransferred = true;
+      worker.postMessage(
+        {
+          action: "init",
+          offscreenCanvas: offscreen,
+          scale,
+          program,
+          disableGhosting: false,
+          inputSharedBuffer,
+          signalBuffer,
+        },
+        [offscreen]
+      );
+    } else {
+      pauseEmulator();
 
-    worker.postMessage(
-      {
-        action: "init",
-        offscreenCanvas: offscreen,
-        scale,
+      worker.postMessage({
+        action: "loadProgram",
         program,
-        disableGhosting: false,
-        inputSharedBuffer,
-        signalBuffer,
-      },
-      [offscreen]
-    );
+      });
+    }
   }
 
-  loadProgram("games", programs.games[12]);
+  // loadProgram("games", programs.games[18]);
+
+  function pauseEmulator() {
+    if (!worker) return;
+
+    Atomics.store(signalArray, 0, 1);
+  }
 
   function changeScale(newScale) {
-    // Pause the emulator so the message can be received by the worker
-    Atomics.store(signalArray, 0, 1);
+    if (!worker) return;
+
+    pauseEmulator();
 
     // Update the scale and send the new configuration to the worker
     scale = newScale;
@@ -185,7 +205,7 @@
   }
 
   window.addEventListener("resize", () => {
-    changeScale(Math.floor(window.innerWidth / 64));
+    changeScale(Math.floor((window.innerWidth - 300) / 64));
   });
 
   const keyMap = {
@@ -216,4 +236,122 @@
     Atomics.store(inputArray, keyMap[e.key], 0);
   });
 
+  let DMenu = new dropDownMenu(
+    [
+      {
+        id: "initial",
+        heading: {
+          text: "Settings",
+          hideArrow: true,
+        },
+        items: [
+          {
+            text: "ROMs",
+            iconID: "romIcon",
+            open: "roms",
+            subMenu: true,
+          },
+          {
+            text: "Enable Ghosting",
+            toggle: true,
+            on: true,
+            toggleOn: () => {
+              worker.postMessage({
+                action: "config",
+                config: {
+                  disableGhosting: false,
+                },
+              });
+            },
+            toggleOff: () => {
+              worker.postMessage({
+                action: "config",
+                config: {
+                  disableGhosting: true,
+                },
+              });
+            },
+          },
+          {
+            text: "Execution Throttling (ms)",
+            textBox: true,
+            onInput: function (event) {
+              worker.postMessage({
+                action: "config",
+                config: {
+                  executionWaitMS: parseInt(event.target.value),
+                },
+              });
+            },
+          },
+        ],
+      },
+      {
+        id: "roms",
+        selectableScene: true,
+        heading: {
+          text: "ROMs",
+        },
+        items: [
+          {
+            text: "Demos",
+            iconID: "demoIcon",
+            open: "demos",
+            subMenu: true,
+          },
+          {
+            text: "Games",
+            iconID: "gamesIcon",
+            open: "games",
+            subMenu: true,
+          },
+          {
+            text: "Programs",
+            iconID: "programIcon",
+            open: "programs",
+            subMenu: true,
+          },
+        ],
+      },
+      {
+        id: "demos",
+        selectableScene: true,
+        heading: {
+          text: "Demos",
+        },
+        items: programs.demos.map((name) => ({
+          text: name,
+          highlightable: true,
+          callback: () => loadProgram("demos", name),
+        })),
+      },
+      {
+        id: "games",
+        selectableScene: true,
+        heading: {
+          text: "Games",
+        },
+        items: programs.games.map((name) => ({
+          text: name,
+          highlightable: true,
+          callback: () => loadProgram("games", name),
+        })),
+      },
+      {
+        id: "programs",
+        selectableScene: true,
+        heading: {
+          text: "Programs",
+        },
+        items: programs.programs.map((name) => ({
+          text: name,
+          highlightable: true,
+          callback: () => loadProgram("programs", name),
+        })),
+      },
+    ],
+    menuCon
+  );
+
+  DMenu.open("initial");
 </script>

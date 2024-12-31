@@ -111,16 +111,39 @@ class Chips8Emulator {
   debug = false;
   disableGhosting = false;
   constructor(fileBinary, config) {
+    this.init(fileBinary, config);
+  }
+  reset() {
+    this.ram.fill(0);
+    this.registers.fill(0);
+    this.stack.fill(0);
+    this.pc = 512;
+    this.stackPointer = 0;
+    this.I = 0;
+    this.fileEnd = 0;
+    this.displayState.fill(0);
+    this.delayTimer = 0;
+    this.soundTimer = 0;
+    this.lastTimerDecrement = performance.now();
+    this.prevDisplay.fill(0);
+    this.powerLevel.fill(0);
+    this.shouldHalt = false;
+    this.lastDraw = 0;
+    clearTimeout(this.drawTimeout);
+    this.instrTrace = [];
+  }
+  init(fileBinary, config) {
+    this.reset();
     this.ram.set(this.fonts, 0);
     this.ram.set(fileBinary, this.pc);
     this.fileEnd = this.pc + fileBinary.length;
-    if (!config.signalBuffer) {
+    if (!config.signalBuffer && !this.signals) {
       console.warn("No signal buffer provided. The emulator will not be able to pause.");
     }
-    if (!config.display) {
+    if (!config.display && !this.display) {
       console.warn("No display provided. The emulator will not be able to draw to the screen.");
     }
-    if (!config.input) {
+    if (!config.input && !this.input) {
       console.warn("No input provided. The emulator will not be able to get input from the user.");
     }
     this.applyConfig(config);

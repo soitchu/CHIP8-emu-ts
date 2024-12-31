@@ -26,7 +26,7 @@ export class Chips8Emulator {
   /**
    * Since the emulator is essentially running an infinite loop, we can use
    * a SharedArrayBuffer to communicate with the emulator.
-   * 
+   *
    * This Uint8Array MUST be a SharedArrayBuffer. It only has one element, and
    * if it is 1, then the emulator will pause after the next instruction, and if
    * it is 0, then the emulator will continue running. If SharedArrayBuffer is not
@@ -34,7 +34,7 @@ export class Chips8Emulator {
    */
   signals: Uint8Array;
 
-  /** 
+  /**
    * The index at which the state signal is stored
    */
   STATE_SIGNAL = 0;
@@ -189,6 +189,35 @@ export class Chips8Emulator {
   disableGhosting: boolean = false;
 
   constructor(fileBinary: Uint8Array, config: EmuConfig) {
+    this.init(fileBinary, config);
+  }
+
+  reset() {
+    this.ram.fill(0);
+    this.registers.fill(0);
+    this.stack.fill(0);
+    this.pc = 0x200;
+    this.stackPointer = 0;
+    this.I = 0;
+    this.fileEnd = 0;
+    this.displayState.fill(0);
+    this.delayTimer = 0;
+    this.soundTimer = 0;
+    this.lastTimerDecrement = performance.now();
+    this.prevDisplay.fill(0);
+    this.powerLevel.fill(0);
+    this.shouldHalt = false;
+    this.lastDraw = 0;
+    clearTimeout(this.drawTimeout);
+    this.instrTrace = [];
+
+    // The rest can be handled by the applyConfig method
+  }
+
+  init(fileBinary: Uint8Array, config: EmuConfig) {
+    // Reset the emulator
+    this.reset();    
+
     // Load the fonts into memory
     this.ram.set(this.fonts, 0);
 
@@ -198,16 +227,22 @@ export class Chips8Emulator {
     // Set where the file ends
     this.fileEnd = this.pc + fileBinary.length;
 
-    if(!config.signalBuffer) {
-      console.warn("No signal buffer provided. The emulator will not be able to pause.");
+    if (!config.signalBuffer && !this.signals) {
+      console.warn(
+        "No signal buffer provided. The emulator will not be able to pause."
+      );
     }
 
-    if(!config.display) {
-      console.warn("No display provided. The emulator will not be able to draw to the screen.");
+    if (!config.display && !this.display) {
+      console.warn(
+        "No display provided. The emulator will not be able to draw to the screen."
+      );
     }
 
-    if(!config.input) {
-      console.warn("No input provided. The emulator will not be able to get input from the user.");
+    if (!config.input && !this.input) {
+      console.warn(
+        "No input provided. The emulator will not be able to get input from the user."
+      );
     }
 
     // Apply the emulator configuration
@@ -788,8 +823,8 @@ export class Chips8Emulator {
    */
   async readKey(): Promise<number | undefined> {
     while (true) {
-      if(Atomics.load(this.signals, this.STATE_SIGNAL) === EmuState.PAUSED) {
-        // console.log("Emulator is paused. Waiting for it to continue."); 
+      if (Atomics.load(this.signals, this.STATE_SIGNAL) === EmuState.PAUSED) {
+        // console.log("Emulator is paused. Waiting for it to continue.");
         // Can't execute this instruction since the emulator is paused
         // so decrement the program counter by 2 to ensure this instruction
         // can be executed when the emulator is resumed
@@ -803,7 +838,7 @@ export class Chips8Emulator {
         }
       }
 
-      // if a SharedArrayBuffer is being used for input, then we don't 
+      // if a SharedArrayBuffer is being used for input, then we don't
       // need to make space for input event to be called
       if (!this.input.isUsingSharedArrayBuffer) {
         // Letting the event loop run
@@ -816,9 +851,7 @@ export class Chips8Emulator {
     const register = (instr & 0x0f00) >> 8;
     const key = await this.readKey();
 
-    
-
-    if(key === undefined) return false;
+    if (key === undefined) return false;
 
     this.addToInstrTrace(`LD V${register}, K`);
 
@@ -1169,7 +1202,7 @@ export class Chips8Emulator {
    */
   async execute() {
     while (this.pc < this.fileEnd && !this.shouldHalt) {
-      if(Atomics.load(this.signals, this.STATE_SIGNAL) === EmuState.PAUSED) {
+      if (Atomics.load(this.signals, this.STATE_SIGNAL) === EmuState.PAUSED) {
         break;
       }
 
