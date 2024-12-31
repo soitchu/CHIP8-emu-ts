@@ -4,23 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHIP-8 Emulator</title>
-    <style>
-      body {
-        margin: 0;
-      }
-      canvas {
-        border: 1px solid black;
-        image-rendering: pixelated;
-      }
-    </style>
+    <link rel="stylesheet" href="./css/menu.css" />
     <link rel="stylesheet" href="./css/index.css" />
   </head>
   <body>
-    <canvas width="64" height="32" id="display"> </canvas>
-    <div id="menuCon"></div>
+    <div id="container">
+      <canvas width="64" height="32" id="display"> </canvas>
+      <div id="menuCon"></div>
+      <div id="menuIcon" class="clickable"></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/gh/soitchu/settings-menu/dist/index.js"></script>
     <script>
+      const container = document.getElementById("container");
+      const menuCon = document.getElementById("menuCon");
+      const menuIcon = document.getElementById("menuIcon");
+      let isMenuOpen = true;
+
+      menuIcon.addEventListener("click", (e) => {
+        menuCon.style.transform = "translateX(0)";
+        menuIcon.style.right = "-60px";
+        isMenuOpen = true;
+        changeScale(calculateCanvasScale());
+      });
+
       const programs = {
         demos: [
           "Maze (alt) [David Winter, 199x].ch8",
@@ -131,6 +138,11 @@
 
       const display = document.getElementById("display");
       let scale = calculateCanvasScale();
+
+      display.style.transform = `translate(${
+        (container.offsetWidth - 300 - 64 * scale) / 2
+      }px, ${(container.offsetHeight - 32 * scale) / 2}px`;
+
       const inputSharedBuffer = new SharedArrayBuffer(
         16 * Uint8Array.BYTES_PER_ELEMENT
       );
@@ -200,8 +212,8 @@
 
       function calculateCanvasScale() {
         return Math.min(
-          Math.floor((window.innerWidth - 300) / 64),
-          Math.floor(window.innerHeight / 32)
+          Math.floor((container.offsetWidth - (isMenuOpen ? 300 : 0)) / 64),
+          Math.floor(container.offsetHeight / 32)
         );
       }
 
@@ -218,6 +230,10 @@
             scale: newScale,
           },
         });
+
+        display.style.transform = `translate(${
+          (container.offsetWidth - (isMenuOpen ? 300 : 0) - 64 * newScale) / 2
+        }px, ${(container.offsetHeight - 32 * newScale) / 2}px`;
       }
 
       window.addEventListener("resize", () => {
@@ -259,6 +275,12 @@
             heading: {
               text: "Settings",
               hideArrow: true,
+              callback: () => {
+                menuCon.style.transform = "translateX(100%)";
+                menuIcon.style.right = "10px";
+                isMenuOpen = false;
+                changeScale(calculateCanvasScale());
+              },
             },
             items: [
               {
@@ -309,6 +331,14 @@
               text: "ROMs",
             },
             items: [
+              {
+                text: "Source: dmatlack/chip8",
+                iconID: "githubIcon",
+                classes: ["source", "clickable"],
+                callback: () => {
+                  window.open("https://github.com/dmatlack/chip8/");
+                }
+              },
               {
                 text: "Demos",
                 iconID: "demoIcon",

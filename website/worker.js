@@ -77,6 +77,8 @@ addEventListener("message", (event) => {
       signalBuffer
     });
 
+    Atomics.store(currentEmulator.signals, currentEmulator.STATE_SIGNAL, 0);
+
     // Start the emulator
     currentEmulator.execute();
   } else if (data.action === "config") {
