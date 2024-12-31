@@ -37,9 +37,9 @@ export type WorkerPayload =
       offscreenCanvas: OffscreenCanvas;
       scale: number;
       program: Uint8Array;
-      disableGhosting: boolean;
       inputSharedBuffer: SharedArrayBuffer;
       signalBuffer: SharedArrayBuffer;
+      config: Partial<typeof config>;
     }
   | {
       action: "config";
@@ -71,21 +71,68 @@ class OffscreenDisplay extends Display {
   }
 }
 
+function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
+  if (!currentEmulator || !currentOffscreenCanvas || !currentDisplay) return;
+
+  // Update the configuration
+  Object.assign(config, emuConfig);
+
+  // Update the emulator with the new configuration
+  currentEmulator.applyConfig(config);
+
+  if ("scale" in emuConfig) {
+    // Resize the offscreen canvas
+    currentOffscreenCanvas.width = 64 * config.scale;
+    currentOffscreenCanvas.height = 32 * config.scale;
+    currentDisplay.scale = config.scale;
+
+    currentEmulator.display.print();
+  }
+
+  if (emuConfig.primaryColor || emuConfig.secondaryColor) {
+    console.log(
+      "Updating colors",
+      emuConfig.primaryColor,
+      emuConfig.secondaryColor
+    );
+    currentDisplay.primaryColor =
+      emuConfig.primaryColor || currentDisplay.primaryColor;
+    currentDisplay.secondaryColor =
+      emuConfig.secondaryColor || currentDisplay.secondaryColor;
+    currentEmulator.display.print();
+  }
+
+  if (emuConfig.program) {
+    currentEmulator.init(emuConfig.program, {});
+    currentEmulator.display.print();
+  }
+
+  if (!isInit) {
+    // Letting the OffscreenCanvas do its thing
+    // without blocking this thread
+    setTimeout(() => {
+      // Resume the emulator
+      currentEmulator!.resume();
+    }, 0);
+  }
+}
+
 addEventListener("message", (event) => {
   const data = event.data as WorkerPayload;
+
+  console.log("Worker received message", data);
 
   if (data.action === "init") {
     const {
       offscreenCanvas,
       scale,
       program,
-      disableGhosting,
       inputSharedBuffer,
       signalBuffer,
+      config: emuConfig,
     } = data;
 
     config.scale = scale;
-    config.disableGhosting = disableGhosting;
 
     if (!currentOffscreenCanvas) {
       currentOffscreenCanvas = offscreenCanvas;
@@ -105,55 +152,17 @@ addEventListener("message", (event) => {
       display: currentDisplay,
       input: inputHandler,
       restartOnEnd: false,
-      disableGhosting,
+      disableGhosting: false,
       signalBuffer,
     });
+
+    applyConfig(emuConfig, true);
 
     Atomics.store(currentEmulator.signals, CHIP8Emulator.STATE_SIGNAL, 0);
 
     // Start the emulator
     currentEmulator.start();
   } else if (data.action === "config") {
-    if (!currentEmulator || !currentOffscreenCanvas || !currentDisplay) return;
-
-    // Update the configuration
-    Object.assign(config, data.config);
-
-    // Update the emulator with the new configuration
-    currentEmulator.applyConfig(config);
-
-    if ("scale" in data.config) {
-      // Resize the offscreen canvas
-      currentOffscreenCanvas.width = 64 * config.scale;
-      currentOffscreenCanvas.height = 32 * config.scale;
-      currentDisplay.scale = config.scale;
-
-      currentEmulator.display.print();
-    }
-
-    if (data.config.primaryColor || data.config.secondaryColor) {
-      console.log(
-        "Updating colors",
-        data.config.primaryColor,
-        data.config.secondaryColor
-      );
-      currentDisplay.primaryColor =
-        data.config.primaryColor || currentDisplay.primaryColor;
-      currentDisplay.secondaryColor =
-        data.config.secondaryColor || currentDisplay.secondaryColor;
-      currentEmulator.display.print();
-    }
-
-    if (data.config.program) {
-      currentEmulator.init(data.config.program, {});
-      currentEmulator.display.print();
-    }
-
-    // Letting the OffscreenCanvas do its thing
-    // without blocking this thread
-    setTimeout(() => {
-      // Resume the emulator
-      currentEmulator!.resume();
-    }, 0);
+    applyConfig(data.config);
   }
 });

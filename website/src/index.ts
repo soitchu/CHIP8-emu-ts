@@ -11,6 +11,14 @@ const display = document.getElementById("display")! as HTMLCanvasElement;
 
 let isMenuOpen = true;
 
+const config = {
+  primaryColor: [0, 0, 0],
+  secondaryColor: [255, 255, 255],
+  disableGhosting: false,
+  executionWaitMS: 0,
+  theme: "",
+};
+
 menuIcon.addEventListener("click", (e) => {
   menuCon.style.transform = "translateX(0)";
   menuIcon.style.right = "-60px";
@@ -164,6 +172,9 @@ async function loadProgram(type, name) {
 
   // Initialize the worker with the offscreen canvas
   if (!offscreenHasBeenTransferred) {
+    const { primaryColor, secondaryColor, disableGhosting, executionWaitMS } =
+      config;
+
     offscreenHasBeenTransferred = true;
     postMessage(
       {
@@ -171,9 +182,14 @@ async function loadProgram(type, name) {
         offscreenCanvas: offscreen,
         scale,
         program,
-        disableGhosting: false,
         inputSharedBuffer,
         signalBuffer,
+        config: {
+          primaryColor,
+          secondaryColor,
+          disableGhosting,
+          executionWaitMS,
+        },
       },
       [offscreen]
     );
@@ -254,7 +270,36 @@ window.addEventListener("keyup", (e) => {
 function postMessage(data: WorkerPayload, transfer: Transferable[] = []) {
   // Pause the emulator if the message is a configuration change
   // The worker will handle the configuration change and resume the emulator
-  if (data.action === "config") pauseEmulator();
+  if (data.action === "config") {
+    pauseEmulator();
+
+    const config = data.config;
+
+    if (config.primaryColor) {
+      localStorage.setItem("primaryColor", JSON.stringify(config.primaryColor));
+    }
+
+    if (config.secondaryColor) {
+      localStorage.setItem(
+        "secondaryColor",
+        JSON.stringify(config.secondaryColor)
+      );
+    }
+
+    if ("disableGhosting" in config) {
+      localStorage.setItem(
+        "disableGhosting",
+        JSON.stringify(config.disableGhosting)
+      );
+    }
+
+    if ("executionWaitMS" in config) {
+      localStorage.setItem(
+        "executionWaitMS",
+        JSON.stringify(config.executionWaitMS)
+      );
+    }
+  }
 
   worker.postMessage(data, transfer);
 }
@@ -299,8 +344,104 @@ const customColors = [
     name: "Palette #4 - Inverted",
     primary: "#F0EDCC",
     secondary: "#02343F",
-  }
+  },
 ];
+
+function deselectROMs(selectedScene: "demos" | "games" | "programs") {
+  const scenes = ["demos", "games", "programs"];
+
+  for (const scene of scenes) {
+    if (scene === selectedScene) continue;
+
+    delete DMenu.selectedValues[scene];
+
+    for (const elem of DMenu.selectedValuesDOM[scene]?.elements) {
+      elem.innerText = "";
+    }
+
+    DMenu.scenes[scene].element
+      .querySelector(".selected")
+      ?.classList.toggle("selected");
+  }
+}
+
+function loadROM(type: "demos" | "games" | "programs", name: string) {
+  loadProgram(type, name);
+  deselectROMs(type);
+  DMenu.selectedValuesDOM.roms.elements[0].innerText = name;
+
+  localStorage.setItem("selectedROM", name);
+  localStorage.setItem("selectedROMType", type);
+}
+
+function init() {
+  const selectedROM = localStorage.getItem("selectedROM");
+  const selectedROMType = localStorage.getItem("selectedROMType");
+
+  if (selectedROM && selectedROMType) {
+    loadROM(selectedROMType as "demos" | "games" | "programs", selectedROM);
+
+    if (selectedROM in DMenu.selections) {
+      DMenu.selections[selectedROM].select();
+    }
+  }
+
+  if(config.theme === "theme-custom") {
+    showCustomColorPickers();
+  }
+}
+
+function loadConfig() {
+  const primaryColor = localStorage.getItem("primaryColor");
+  const secondaryColor = localStorage.getItem("secondaryColor");
+  const disableGhosting = localStorage.getItem("disableGhosting");
+  const executionWaitMS = localStorage.getItem("executionWaitMS");
+  const theme = localStorage.getItem("theme");
+
+  try {
+    if (primaryColor) config.primaryColor = JSON.parse(primaryColor);
+  } catch {}
+
+  try {
+    if (secondaryColor) config.secondaryColor = JSON.parse(secondaryColor);
+  } catch {}
+
+  try {
+    if (theme === "theme-custom") {
+      const primaryColor = localStorage.getItem("custom-primaryColor");
+      config.primaryColor = hexToRGBA(primaryColor);
+    }
+  } catch {}
+
+  try {
+    if (theme === "theme-custom") {
+      const secondaryColor = localStorage.getItem("custom-secondaryColor");
+      config.secondaryColor = hexToRGBA(secondaryColor);
+    }
+  } catch {}
+
+  try {
+    if (disableGhosting) config.disableGhosting = JSON.parse(disableGhosting);
+  } catch {}
+
+  try {
+    if (executionWaitMS) config.executionWaitMS = JSON.parse(executionWaitMS);
+  } catch {}
+
+  try {
+    if (theme) config.theme = theme;
+  } catch {}
+}
+
+function showCustomColorPickers() {
+  const customColorPicker = document.getElementsByClassName("custom-color");
+
+  for (let i = 0; i < customColorPicker.length; i++) {
+    customColorPicker[i].classList.remove("none");
+  }
+}
+
+loadConfig();
 
 let DMenu = new dropDownMenu(
   [
@@ -332,7 +473,7 @@ let DMenu = new dropDownMenu(
         {
           text: "Enable Ghosting",
           toggle: true,
-          on: true,
+          on: !config.disableGhosting,
           toggleOn: () => {
             postMessage({
               action: "config",
@@ -353,6 +494,7 @@ let DMenu = new dropDownMenu(
         {
           text: "Execution Throttling (ms)",
           textBox: true,
+          value: config.executionWaitMS,
           onInput: function (event) {
             postMessage({
               action: "config",
@@ -374,7 +516,17 @@ let DMenu = new dropDownMenu(
         ...customColors.map(({ primary, secondary, name }) => ({
           text: name,
           highlightable: true,
+          selected: config.theme === `theme-${name}`,
           callback: () => {
+            const customColorPicker =
+              document.getElementsByClassName("custom-color");
+
+            for (let i = 0; i < customColorPicker.length; i++) {
+              customColorPicker[i].classList.add("none");
+            }
+
+            localStorage.setItem("theme", `theme-${name}`);
+
             postMessage({
               action: "config",
               config: {
@@ -387,6 +539,7 @@ let DMenu = new dropDownMenu(
         {
           highlightable: true,
           text: "Custom",
+          selected: config.theme === "theme-custom",
           callback: () => {
             const customColorPicker =
               document.getElementsByClassName("custom-color");
@@ -394,18 +547,25 @@ let DMenu = new dropDownMenu(
             for (let i = 0; i < customColorPicker.length; i++) {
               customColorPicker[i].classList.remove("none");
             }
+
+            localStorage.setItem("theme", "theme-custom");
           },
         },
         {
           text: "Primary Color",
           color: true,
           id: "primaryColor",
-          classes: ["none", "custom-color"],
+          classes: ["custom-color", "none"],
+          value: localStorage.getItem("custom-primaryColor") || "#000000",
           onInput: function (event) {
+            const color = hexToRGBA(event.target.value);
+
+            localStorage.setItem("custom-primaryColor", event.target.value);
+
             postMessage({
               action: "config",
               config: {
-                primaryColor: hexToRGBA(event.target.value),
+                primaryColor: color,
               },
             });
           },
@@ -415,11 +575,16 @@ let DMenu = new dropDownMenu(
           color: true,
           id: "secondaryColor",
           classes: ["none", "custom-color"],
+          value: localStorage.getItem("custom-secondaryColor") || "#FFFFFF",
           onInput: function (event) {
+            const color = hexToRGBA(event.target.value);
+
+            localStorage.setItem("custom-secondaryColor", event.target.value);
+
             postMessage({
               action: "config",
               config: {
-                secondaryColor: hexToRGBA(event.target.value),
+                secondaryColor: color,
               },
             });
           },
@@ -469,8 +634,9 @@ let DMenu = new dropDownMenu(
       },
       items: programs.demos.map((name) => ({
         text: name,
+        id: name,
         highlightable: true,
-        callback: () => loadProgram("demos", name),
+        callback: () => loadROM("demos", name),
       })),
     },
     {
@@ -481,8 +647,9 @@ let DMenu = new dropDownMenu(
       },
       items: programs.games.map((name) => ({
         text: name,
+        id: name,
         highlightable: true,
-        callback: () => loadProgram("games", name),
+        callback: () => loadROM("games", name),
       })),
     },
     {
@@ -493,8 +660,9 @@ let DMenu = new dropDownMenu(
       },
       items: programs.programs.map((name) => ({
         text: name,
+        id: name,
         highlightable: true,
-        callback: () => loadProgram("programs", name),
+        callback: () => loadROM("programs", name),
       })),
     },
   ],
@@ -502,3 +670,6 @@ let DMenu = new dropDownMenu(
 );
 
 DMenu.open("initial");
+init();
+
+window["DMenu"] = DMenu;
