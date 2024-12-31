@@ -92,14 +92,9 @@ class Chips8Emulator {
   stackPointer = 0;
   I = 0;
   fileEnd = 0;
-  DISPLAY_WIDTH = 64;
-  DISPLAY_HEIGHT = 32;
-  displayState = new Uint8Array(this.DISPLAY_WIDTH * this.DISPLAY_HEIGHT);
   delayTimer = 0;
   soundTimer = 0;
   lastTimerDecrement = performance.now();
-  prevDisplay = new Uint8Array(this.DISPLAY_WIDTH * this.DISPLAY_HEIGHT);
-  powerLevel = new Uint8Array(this.DISPLAY_WIDTH * this.DISPLAY_HEIGHT);
   shouldHalt = false;
   lastDraw = 0;
   DISPLAY_RATE = this.SIXTY_HZ;
@@ -121,16 +116,14 @@ class Chips8Emulator {
     this.stackPointer = 0;
     this.I = 0;
     this.fileEnd = 0;
-    this.displayState.fill(0);
     this.delayTimer = 0;
     this.soundTimer = 0;
     this.lastTimerDecrement = performance.now();
-    this.prevDisplay.fill(0);
-    this.powerLevel.fill(0);
     this.shouldHalt = false;
     this.lastDraw = 0;
     clearTimeout(this.drawTimeout);
     this.instrTrace = [];
+    this.display?.reset();
   }
   init(fileBinary, config) {
     this.reset();
@@ -176,9 +169,9 @@ class Chips8Emulator {
   }
   cls() {
     this.addToInstrTrace("CLS");
-    this.displayState.fill(0);
+    this.display.displayState.fill(0);
     this.display.clear();
-    this.display.flush(this.displayState, this.DISPLAY_WIDTH);
+    this.display.flush();
   }
   ret() {
     this.addToInstrTrace("RET");
@@ -343,35 +336,38 @@ class Chips8Emulator {
     this.registers[15] = 0;
     const valueX = this.registers[registerX];
     const valueY = this.registers[registerY];
-    const xCoord = valueX % this.DISPLAY_WIDTH;
-    const yCoord = valueY % this.DISPLAY_HEIGHT;
+    const displayWidth = this.display.WIDTH;
+    const displayHeight = this.display.HEIGHT;
+    const displayState = this.display.displayState;
+    const xCoord = valueX % displayWidth;
+    const yCoord = valueY % displayHeight;
     const bitsPrinted = [];
-    this.prevDisplay = this.displayState.slice();
+    this.display.prevDisplay = this.display.displayState.slice();
     for (let i = 0;i < bytes; i++) {
       const bits = this.ram[this.I + i];
-      const cy = (yCoord + i) % this.DISPLAY_WIDTH;
+      const cy = (yCoord + i) % displayHeight;
       bitsPrinted.push(bits.toString(16).padStart(2, "0"));
       for (let j = 0;j < 8; j++) {
-        const cx = (xCoord + j) % this.DISPLAY_WIDTH;
-        const currentDisplayValue = this.displayState[cy * this.DISPLAY_WIDTH + cx];
+        const cx = (xCoord + j) % displayWidth;
+        const currentDisplayValue = displayState[cy * displayWidth + cx];
         const bit = bits & 1 << 7 - j;
         if (bit > 0) {
           if (currentDisplayValue === 1) {
-            this.displayState[cy * this.DISPLAY_WIDTH + cx] = 0;
+            displayState[cy * displayWidth + cx] = 0;
             this.registers[15] = 1;
           } else {
-            this.displayState[cy * this.DISPLAY_WIDTH + cx] = 1;
+            displayState[cy * displayWidth + cx] = 1;
           }
         }
-        if (cx === this.DISPLAY_WIDTH - 1) {
+        if (cx === displayWidth - 1) {
           break;
         }
       }
-      if (cy === this.DISPLAY_HEIGHT - 1) {
+      if (cy === displayHeight - 1) {
         break;
       }
     }
-    await this.printDisplay();
+    await this.display.print();
   }
   skipIfKeyPressed(instr) {
     const register = (instr & 3840) >> 8;
@@ -591,27 +587,6 @@ class Chips8Emulator {
   }
   genRandomByte() {
     return Math.floor(Math.random() * 256);
-  }
-  async printDisplay() {
-    const color1 = [141, 198, 255];
-    const color2 = [159, 211, 199];
-    this.display.clear();
-    for (let i = 0;i < this.displayState.length; i++) {
-      const x = i % this.DISPLAY_WIDTH;
-      const y = Math.floor(i / this.DISPLAY_WIDTH);
-      if (this.displayState[i] === 1) {
-        this.display.draw(x, y, color1[0], color1[1], color1[2]);
-      } else {
-        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.22);
-        if (this.prevDisplay[i] === 1) {
-          this.powerLevel[i] = 255;
-        }
-        const newPowerLevel = this.disableGhosting ? 0 : Math.floor(this.powerLevel[i]);
-        const normalizedPowerLevel = newPowerLevel / 255;
-        this.display.draw(x, y, color2[0] * normalizedPowerLevel, color2[1] * normalizedPowerLevel, color2[2] * normalizedPowerLevel);
-      }
-    }
-    await this.display.flush(this.displayState, this.DISPLAY_WIDTH);
   }
   async execute() {
     while (this.pc < this.fileEnd && !this.shouldHalt) {

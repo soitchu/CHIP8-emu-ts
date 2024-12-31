@@ -322,6 +322,19 @@
                   });
                 },
               },
+              {
+                text: "Primary Color",
+                color: true,
+                onInput: function (event) {
+                  console.log(event.target.value);
+                  // worker.postMessage({
+                  //   action: "config",
+                  //   config: {
+                  //     primaryColor: event.target.value,
+                  //   },
+                  // });
+                },
+              }
             ],
           },
           {

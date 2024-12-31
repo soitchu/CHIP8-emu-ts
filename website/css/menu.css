@@ -104,7 +104,7 @@ body {
 
 .menuItemText {
     display: inline-block;
-    margin-right: 10px;
+    margin-right: auto;
     vertical-align: middle;
 }
 

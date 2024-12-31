@@ -1,10 +1,5 @@
+import { Display } from "./Display";
 import { Input } from "./Input";
-
-export interface Display {
-  draw(x: number, y: number, r: number, g: number, b: number): void;
-  clear(): void;
-  flush(displayState: Uint8Array, width: number): Promise<void>;
-}
 
 enum EmuState {
   PAUSED = 1,
@@ -99,19 +94,6 @@ export class Chips8Emulator {
   fileEnd: number = 0;
 
   /**
-   * The display is 64x32 pixels
-   */
-  DISPLAY_WIDTH = 64;
-  DISPLAY_HEIGHT = 32;
-
-  /**
-   * The display state is a 1D array of 0s and 1s. 0 indicates off, 1 indicates on.
-   */
-  displayState: Uint8Array = new Uint8Array(
-    this.DISPLAY_WIDTH * this.DISPLAY_HEIGHT
-  );
-
-  /**
    * The delay timer is active whenever the delay timer register (DT) is non-zero.
    * This timer does nothing more than subtract 1 from the value of DT at a rate of 60Hz.
    * When DT reaches 0, it deactivates.
@@ -131,18 +113,6 @@ export class Chips8Emulator {
    * Keeps track of when we last decremented the delay timer and sound timer
    */
   lastTimerDecrement: number = performance.now();
-
-  /**
-   * XOR'ing sprites can cause flicker, so we will implement a power level system
-   * where the brightness of the pixel is reduced over time.
-   */
-  prevDisplay: Uint8Array = new Uint8Array(
-    this.DISPLAY_WIDTH * this.DISPLAY_HEIGHT
-  );
-
-  powerLevel: Uint8Array = new Uint8Array(
-    this.DISPLAY_WIDTH * this.DISPLAY_HEIGHT
-  );
 
   /**
    * Halt rhe emulator
@@ -200,23 +170,21 @@ export class Chips8Emulator {
     this.stackPointer = 0;
     this.I = 0;
     this.fileEnd = 0;
-    this.displayState.fill(0);
     this.delayTimer = 0;
     this.soundTimer = 0;
     this.lastTimerDecrement = performance.now();
-    this.prevDisplay.fill(0);
-    this.powerLevel.fill(0);
     this.shouldHalt = false;
     this.lastDraw = 0;
     clearTimeout(this.drawTimeout);
     this.instrTrace = [];
 
+    this.display?.reset();
     // The rest can be handled by the applyConfig method
   }
 
   init(fileBinary: Uint8Array, config: EmuConfig) {
     // Reset the emulator
-    this.reset();    
+    this.reset();
 
     // Load the fonts into memory
     this.ram.set(this.fonts, 0);
@@ -301,10 +269,10 @@ export class Chips8Emulator {
   cls() {
     this.addToInstrTrace("CLS");
 
-    this.displayState.fill(0);
+    this.display.displayState.fill(0);
 
     this.display.clear();
-    this.display.flush(this.displayState, this.DISPLAY_WIDTH);
+    this.display.flush();
   }
 
   /**
@@ -721,45 +689,48 @@ export class Chips8Emulator {
     const valueX = this.registers[registerX];
     const valueY = this.registers[registerY];
 
-    const xCoord = valueX % this.DISPLAY_WIDTH;
-    const yCoord = valueY % this.DISPLAY_HEIGHT;
+    const displayWidth = this.display.WIDTH;
+    const displayHeight = this.display.HEIGHT;
+    const displayState = this.display.displayState;
+
+    const xCoord = valueX % displayWidth;
+    const yCoord = valueY % displayHeight;
 
     const bitsPrinted: string[] = [];
 
-    this.prevDisplay = this.displayState.slice();
+    this.display.prevDisplay = this.display.displayState.slice();
 
     for (let i = 0; i < bytes; i++) {
       const bits = this.ram[this.I + i];
-      const cy = (yCoord + i) % this.DISPLAY_WIDTH;
+      const cy = (yCoord + i) % displayHeight;
 
       bitsPrinted.push(bits.toString(16).padStart(2, "0"));
 
       for (let j = 0; j < 8; j++) {
-        const cx = (xCoord + j) % this.DISPLAY_WIDTH;
-        const currentDisplayValue =
-          this.displayState[cy * this.DISPLAY_WIDTH + cx];
+        const cx = (xCoord + j) % displayWidth;
+        const currentDisplayValue = displayState[cy * displayWidth + cx];
         const bit = bits & (0x01 << (7 - j));
 
         if (bit > 0) {
           if (currentDisplayValue === 1) {
-            this.displayState[cy * this.DISPLAY_WIDTH + cx] = 0;
+            displayState[cy * displayWidth + cx] = 0;
             this.registers[0xf] = 1;
           } else {
-            this.displayState[cy * this.DISPLAY_WIDTH + cx] = 1;
+            displayState[cy * displayWidth + cx] = 1;
           }
         }
 
-        if (cx === this.DISPLAY_WIDTH - 1) {
+        if (cx === displayWidth - 1) {
           break;
         }
       }
 
-      if (cy === this.DISPLAY_HEIGHT - 1) {
+      if (cy === displayHeight - 1) {
         break;
       }
     }
 
-    await this.printDisplay();
+    await this.display.print();
   }
 
   /**
@@ -1151,49 +1122,6 @@ export class Chips8Emulator {
 
   genRandomByte() {
     return Math.floor(Math.random() * 256);
-  }
-
-  async printDisplay() {
-    const color1 = [0x8d, 0xc6, 0xff];
-    const color2 = [0x9f, 0xd3, 0xc7];
-
-    this.display.clear();
-
-    for (let i = 0; i < this.displayState.length; i++) {
-      const x = i % this.DISPLAY_WIDTH;
-      const y = Math.floor(i / this.DISPLAY_WIDTH);
-      if (this.displayState[i] === 1) {
-        // The pixel is on, so set the power level to max
-        this.display.draw(x, y, color1[0], color1[1], color1[2]);
-      } else {
-        // The pixel is off, so decrease the power level (brightness) of the pixel
-        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.22);
-
-        // If the pixel was previously on, set the power level to max, i.e. max brightness
-        if (this.prevDisplay[i] === 1) {
-          this.powerLevel[i] = 255;
-        }
-
-        const newPowerLevel = this.disableGhosting
-          ? 0
-          : Math.floor(this.powerLevel[i]);
-
-        // Normalize the power level to be between 0 and 1, so it can
-        // be multiplied by the color values
-        const normalizedPowerLevel = newPowerLevel / 255;
-
-        this.display.draw(
-          x,
-          y,
-          color2[0] * normalizedPowerLevel,
-          color2[1] * normalizedPowerLevel,
-          color2[2] * normalizedPowerLevel
-        );
-      }
-    }
-
-    // Flush the display to the screen
-    await this.display.flush(this.displayState, this.DISPLAY_WIDTH);
   }
 
   /**

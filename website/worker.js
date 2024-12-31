@@ -1,5 +1,6 @@
 import { Chips8Emulator } from "./js/CHIP-8-emulator.js";
 import { Input } from "./js/Input.js";
+import { Display } from "./js/Display.js";
 
 /** @type {import("../CHIP-8/index.js").Chips8Emulator} */
 let currentEmulator = null;
@@ -26,6 +27,28 @@ const config = {
   restartOnEnd: false,
 };
 
+class OffscreenDisplay extends Display {
+  constructor(offscreenCanvas, scale) {
+    super();
+    this.ctx = offscreenCanvas.getContext("2d");
+    this.scale = scale;
+  }
+
+  clear() {
+    this.ctx.clearRect(0, 0, this.scale * 64, this.scale * 32);
+  }
+
+  draw(x, y, r, g, b) {
+    this.ctx.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
+    this.ctx.fillRect(x * this.scale, y * this.scale, this.scale, this.scale);
+  }
+
+  flush() {
+    // Allow the event loop to run
+    return new Promise((resolve) => setTimeout(resolve, config.executionWaitMS));
+  }
+}
+
 
 addEventListener("message", (event) => {
   const data = event.data;
@@ -50,23 +73,7 @@ addEventListener("message", (event) => {
     // Create a new instance of the input handler
     inputHandler = new Input(inputSharedBuffer);
 
-    currentDisplay = {
-      clear: () => {
-        const scale = config.scale;
-
-        ctx.clearRect(0, 0, scale * 64, scale * 32);
-      },
-      draw: (x, y, r, g, b) => {
-        const scale = config.scale;
-
-        ctx.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
-        ctx.fillRect(x * scale, y * scale, scale, scale);
-      },
-      flush: async () => {
-        // Allow the event loop to run
-        await new Promise((resolve) => setTimeout(resolve, config.executionWaitMS));
-      },
-    };
+    currentDisplay = new OffscreenDisplay(currentOffscreenCanvas, scale);
     
     // Create a new instance of the emulator
     currentEmulator = new Chips8Emulator(program, {
@@ -94,7 +101,9 @@ addEventListener("message", (event) => {
       // Resize the offscreen canvas
       currentOffscreenCanvas.width = 64 * config.scale;
       currentOffscreenCanvas.height = 32 * config.scale;
-      currentEmulator.printDisplay();
+      currentDisplay.scale = config.scale;
+
+      currentEmulator.display.print();
 
       // Letting the OffscreenCanvas do its thing
       // without blocking this thread
@@ -110,7 +119,7 @@ addEventListener("message", (event) => {
   } else if(data.action === "loadProgram") {
     console.log("Loading program");
     currentEmulator.init(data.program, {});
-    currentEmulator.printDisplay();
+    currentEmulator.display.print();
 
     // Letting the OffscreenCanvas do its thing
     // without blocking this thread
