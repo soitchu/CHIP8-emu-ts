@@ -158,8 +158,8 @@ class Chips8Emulator {
     if ("debug" in config) {
       this.debug = config.debug;
     }
-    if ("disableGhosting" in config) {
-      this.disableGhosting = config.disableGhosting;
+    if ("disableGhosting" in config && this.display) {
+      this.display.disableGhosting = config.disableGhosting;
     }
   }
   addToInstrTrace(instr) {

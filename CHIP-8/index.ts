@@ -246,8 +246,8 @@ export class Chips8Emulator {
       this.debug = config.debug!;
     }
 
-    if ("disableGhosting" in config) {
-      this.disableGhosting = config.disableGhosting!;
+    if ("disableGhosting" in config && this.display) {
+      this.display.disableGhosting = config.disableGhosting!;
     }
   }
 
