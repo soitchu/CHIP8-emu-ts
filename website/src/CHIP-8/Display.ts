@@ -30,6 +30,11 @@ export abstract class Display {
    */
   disableGhosting: boolean = false;
 
+  /**
+   * The time of the last print operation
+   */
+  lastDrawTime: number = 0;
+
   // Default colors
   primaryColor: number[] = [0x8d, 0xc6, 0xff];
   secondaryColor: number[] = [0x0, 0x0, 0x0];
@@ -44,7 +49,14 @@ export abstract class Display {
     this.powerLevel.fill(0);
   }
 
+  canPrint(): boolean {
+    // return true;
+    return performance.now() - this.lastDrawTime >= 1000 / 240;
+  }
+
   async print(): Promise<void> {
+    this.lastDrawTime = performance.now();
+
     const primaryColor = this.primaryColor;
     const secondaryColor = this.secondaryColor;
 
@@ -58,7 +70,7 @@ export abstract class Display {
         this.draw(x, y, primaryColor[0], primaryColor[1], primaryColor[2]);
       } else {
         // The pixel is off, so decrease the power level (brightness) of the pixel
-        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.22);
+        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.55);
 
         // If the pixel was previously on, set the power level to max, i.e. max brightness
         if (this.prevDisplay[i] === 1) {
@@ -85,5 +97,6 @@ export abstract class Display {
 
     // Flush the display to the screen
     await this.flush();
+    this.prevDisplay = this.displayState.slice();
   }
 }

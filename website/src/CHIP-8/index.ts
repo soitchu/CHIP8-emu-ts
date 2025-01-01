@@ -13,10 +13,13 @@ export interface EmuConfig {
   input?: Input;
   debug?: boolean;
   disableGhosting?: boolean;
+  tickRate?: number;
 }
 
 export class CHIP8Emulator {
   SIXTY_HZ = 1000 / 60;
+
+  tickRate = 5;
 
   /**
    * The index at which the state signal is stored
@@ -42,6 +45,7 @@ export class CHIP8Emulator {
   /**
    * 16 8-bit registers
    */
+  // registers: number[] = Array(16).fill(0);
   registers: Uint8Array = new Uint8Array(16);
 
   /**
@@ -158,6 +162,8 @@ export class CHIP8Emulator {
    */
   currentExecutionPromise: Promise<void> | null = null;
 
+  readKeyInstruction: number = -1;
+
   constructor(fileBinary: Uint8Array, config: EmuConfig) {
     this.init(fileBinary, config);
   }
@@ -242,6 +248,10 @@ export class CHIP8Emulator {
       this.restartOnEnd = config.restartOnEnd!;
     }
 
+    if ("tickRate" in config) {
+      this.tickRate = config.tickRate!;
+    }
+
     if ("debug" in config) {
       this.debug = config.debug!;
     }
@@ -267,7 +277,7 @@ export class CHIP8Emulator {
    * Clear the display.
    */
   cls() {
-    this.addToInstrTrace("CLS");
+    // this.addToInstrTrace("CLS");
 
     this.display.displayState.fill(0);
 
@@ -283,7 +293,7 @@ export class CHIP8Emulator {
    * then subtracts 1 from the stack pointer.
    */
   ret() {
-    this.addToInstrTrace("RET");
+    // this.addToInstrTrace("RET");
 
     this.pc = this.stack[this.stackPointer];
     this.stackPointer--;
@@ -298,7 +308,7 @@ export class CHIP8Emulator {
   jmp(instr: number) {
     const address = instr & 0x0fff;
 
-    this.addToInstrTrace(`JMP ${address}`);
+    // this.addToInstrTrace(`JMP ${address}`);
 
     this.pc = address;
   }
@@ -313,7 +323,7 @@ export class CHIP8Emulator {
   call(instr: number) {
     const address = instr & 0x0fff;
 
-    this.addToInstrTrace(`CALL ${address}`);
+    // this.addToInstrTrace(`CALL ${address}`);
 
     this.stackPointer++;
     this.stack[this.stackPointer] = this.pc;
@@ -331,9 +341,9 @@ export class CHIP8Emulator {
     const register = (instr & 0x0f00) >> 8;
     const value = instr & 0x00ff;
 
-    this.addToInstrTrace(
-      `SE V${register}, ${value.toString(16).padStart(2, "0")}`
-    );
+    // this.addToInstrTrace(
+    //   `SE V${register}, ${value.toString(16).padStart(2, "0")}`
+    // );
 
     if (this.registers[register] === value) {
       this.pc += 2;
@@ -351,9 +361,9 @@ export class CHIP8Emulator {
     const register = (instr & 0x0f00) >> 8;
     const value = instr & 0x00ff;
 
-    this.addToInstrTrace(
-      `SNE V${register}, ${value.toString(16).padStart(2, "0")}`
-    );
+    // this.addToInstrTrace(
+    //   `SNE V${register}, ${value.toString(16).padStart(2, "0")}`
+    // );
 
     if (this.registers[register] !== value) {
       this.pc += 2;
@@ -371,7 +381,7 @@ export class CHIP8Emulator {
     const registerX = (instr & 0x0f00) >> 8;
     const registerY = (instr & 0x00f0) >> 4;
 
-    this.instrTrace.push(`SE V${registerX}, V${registerY}`);
+    // this.instrTrace.push(`SE V${registerX}, V${registerY}`);
 
     if (this.registers[registerX] === this.registers[registerY]) {
       this.pc += 2;
@@ -388,11 +398,11 @@ export class CHIP8Emulator {
     const register = (instr & 0x0f00) >> 8;
     const value = instr & 0x00ff;
 
-    this.addToInstrTrace(
-      `LD V${register}, ${value.toString(16).padStart(2, "0")}`
-    );
+    // this.addToInstrTrace(
+    //   `LD V${register}, ${value.toString(16).padStart(2, "0")}`
+    // );
 
-    this.registers[register] = value;
+    this.registers[register] = value & 0xff;
   }
 
   /**
@@ -406,11 +416,11 @@ export class CHIP8Emulator {
     const toAdd = instr & 0x00ff;
     const valueX = this.registers[register];
 
-    this.addToInstrTrace(
-      `ADD V${register}, ${toAdd.toString(16).padStart(2, "0")}`
-    );
+    // this.addToInstrTrace(
+    //   `ADD V${register}, ${toAdd.toString(16).padStart(2, "0")}`
+    // );
 
-    this.registers[register] = valueX + toAdd;
+    this.registers[register] = (valueX + toAdd) & 0xff;
   }
 
   /**
@@ -423,7 +433,7 @@ export class CHIP8Emulator {
     const registerX = (instr & 0x0f00) >> 8;
     const registerY = (instr & 0x00f0) >> 4;
 
-    this.addToInstrTrace(`LD V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`LD V${registerX}, V${registerY}`);
 
     this.registers[registerX] = this.registers[registerY];
   }
@@ -450,7 +460,7 @@ export class CHIP8Emulator {
   or(instr: number) {
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
 
-    this.addToInstrTrace(`OR V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`OR V${registerX}, V${registerY}`);
 
     this.registers[registerX] =
       this.registers[registerX] | this.registers[registerY];
@@ -467,7 +477,7 @@ export class CHIP8Emulator {
   and(instr: number) {
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
 
-    this.addToInstrTrace(`AND V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`AND V${registerX}, V${registerY}`);
 
     this.registers[registerX] =
       this.registers[registerX] & this.registers[registerY];
@@ -485,7 +495,7 @@ export class CHIP8Emulator {
   xor(instr: number) {
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
 
-    this.addToInstrTrace(`XOR V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`XOR V${registerX}, V${registerY}`);
 
     this.registers[registerX] =
       this.registers[registerX] ^ this.registers[registerY];
@@ -504,7 +514,7 @@ export class CHIP8Emulator {
     const valueX = this.registers[registerX];
     const valueY = this.registers[registerY];
 
-    this.addToInstrTrace(`ADD V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`ADD V${registerX}, V${registerY}`);
 
     this.registers[registerX] = valueX + valueY;
 
@@ -527,7 +537,7 @@ export class CHIP8Emulator {
     const valueX = this.registers[registerX];
     const valueY = this.registers[registerY];
 
-    this.addToInstrTrace(`SUB V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`SUB V${registerX}, V${registerY}`);
 
     this.registers[registerX] = valueX - valueY;
 
@@ -550,7 +560,7 @@ export class CHIP8Emulator {
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
     const valueX = this.registers[registerX];
 
-    this.addToInstrTrace(`SHR V${registerX} {, V${registerY}}`);
+    // this.addToInstrTrace(`SHR V${registerX} {, V${registerY}}`);
 
     this.registers[registerX] = valueX / 2;
     this.registers[0xf] = valueX & 0x01;
@@ -569,7 +579,7 @@ export class CHIP8Emulator {
     const valueX = this.registers[registerX];
     const valueY = this.registers[registerY];
 
-    this.addToInstrTrace(`SUBN V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`SUBN V${registerX}, V${registerY}`);
 
     this.registers[registerX] = valueY - valueX;
 
@@ -592,7 +602,7 @@ export class CHIP8Emulator {
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
     const valueX = this.registers[registerX];
 
-    this.addToInstrTrace(`SHL V${registerX} {, V${registerY}}`);
+    // this.addToInstrTrace(`SHL V${registerX} {, V${registerY}}`);
 
     this.registers[registerX] = valueX << 1;
     this.registers[0xf] = valueX >> 7;
@@ -610,7 +620,7 @@ export class CHIP8Emulator {
     const valueX = this.registers[registerX];
     const valueY = this.registers[registerY];
 
-    this.addToInstrTrace(`SNE V${registerX}, V${registerY}`);
+    // this.addToInstrTrace(`SNE V${registerX}, V${registerY}`);
 
     if (valueX !== valueY) {
       this.pc += 2;
@@ -626,7 +636,7 @@ export class CHIP8Emulator {
   changeI(instr: number) {
     const value = instr & 0x0fff;
 
-    this.addToInstrTrace(`LD I, ${value.toString(16).padStart(3, "0")}`);
+    // this.addToInstrTrace(`LD I, ${value.toString(16).padStart(3, "0")}`);
 
     this.I = value;
   }
@@ -640,7 +650,7 @@ export class CHIP8Emulator {
   jmpByOffsetV0(instr: number) {
     const offset = instr & 0x0fff;
 
-    this.addToInstrTrace(`JMP V0, ${offset.toString(16).padStart(3, "0")}`);
+    // this.addToInstrTrace(`JMP V0, ${offset.toString(16).padStart(3, "0")}`);
 
     this.pc = this.registers[0] + offset;
   }
@@ -658,9 +668,9 @@ export class CHIP8Emulator {
     const value = instr & 0x00ff;
     const randomByte = this.genRandomByte();
 
-    this.addToInstrTrace(
-      `RND V${register}, ${value.toString(16).padStart(2, "0")}`
-    );
+    // this.addToInstrTrace(
+    //   `RND V${register}, ${value.toString(16).padStart(2, "0")}`
+    // );
 
     this.registers[register] = randomByte & value;
   }
@@ -677,12 +687,13 @@ export class CHIP8Emulator {
    * the screen.
    */
   async draw(instr: number) {
+    // return;
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
     const bytes = instr & 0x000f;
 
-    this.addToInstrTrace(
-      `DRW V${registerX}, V${registerY}, ${bytes.toString(16).padStart(2, "0")}`
-    );
+    // this.addToInstrTrace(
+    //   `DRW V${registerX}, V${registerY}, ${bytes.toString(16).padStart(2, "0")}`
+    // );
 
     this.registers[0xf] = 0;
 
@@ -695,16 +706,10 @@ export class CHIP8Emulator {
 
     const xCoord = valueX % displayWidth;
     const yCoord = valueY % displayHeight;
-
-    const bitsPrinted: string[] = [];
-
-    this.display.prevDisplay = this.display.displayState.slice();
-
+    
     for (let i = 0; i < bytes; i++) {
       const bits = this.ram[this.I + i];
       const cy = (yCoord + i) % displayHeight;
-
-      bitsPrinted.push(bits.toString(16).padStart(2, "0"));
 
       for (let j = 0; j < 8; j++) {
         const cx = (xCoord + j) % displayWidth;
@@ -729,8 +734,6 @@ export class CHIP8Emulator {
         break;
       }
     }
-
-    await this.display.print();
   }
 
   /**
@@ -744,7 +747,7 @@ export class CHIP8Emulator {
     const register = (instr & 0x0f00) >> 8;
     const valueX = this.registers[register];
 
-    this.addToInstrTrace(`SKP V${register}`);
+    // this.addToInstrTrace(`SKP V${register}`);
 
     if (this.input.isActive(valueX)) {
       this.pc += 2;
@@ -763,7 +766,7 @@ export class CHIP8Emulator {
     const register = (instr & 0x0f00) >> 8;
     const valueX = this.registers[register];
 
-    this.addToInstrTrace(`SKNP V${register}`);
+    // this.addToInstrTrace(`SKNP V${register}`);
 
     if (!this.input.isActive(valueX)) {
       this.pc += 2;
@@ -780,9 +783,9 @@ export class CHIP8Emulator {
   readDelayIntoRegister(instr: number) {
     const register = (instr & 0x0f00) >> 8;
 
-    this.addToInstrTrace(`LD V${register}, DT`);
+    // this.addToInstrTrace(`LD V${register}, DT`);
 
-    this.registers[register] = this.delayTimer;
+    this.registers[register] = this.delayTimer & 0xff;
   }
 
   /**
@@ -793,9 +796,14 @@ export class CHIP8Emulator {
    * then the value of that key is stored in Vx.
    */
   async readKey(): Promise<number | undefined> {
+    let wasActive = false;
+    let activeIndex = -1;
+
     while (true) {
-      if (Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) === EmuState.PAUSED) {
-        // console.log("Emulator is paused. Waiting for it to continue.");
+      if (
+        Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
+        EmuState.PAUSED
+      ) {
         // Can't execute this instruction since the emulator is paused
         // so decrement the program counter by 2 to ensure this instruction
         // can be executed when the emulator is resumed
@@ -804,17 +812,16 @@ export class CHIP8Emulator {
       }
 
       for (let i = 0; i < 16; i++) {
-        if (this.input.isActive(i)) {
+        if (this.input.isActive(i) && !wasActive && activeIndex !== i) {
+          activeIndex = i;
+          wasActive = true;
+          break;
+        } else if (!this.input.isActive(i) && activeIndex === i) {
           return i;
         }
       }
 
-      // if a SharedArrayBuffer is being used for input, then we don't
-      // need to make space for input event to be called
-      if (!this.input.isUsingSharedArrayBuffer) {
-        // Letting the event loop run
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }
 
@@ -824,7 +831,7 @@ export class CHIP8Emulator {
 
     if (key === undefined) return false;
 
-    this.addToInstrTrace(`LD V${register}, K`);
+    // this.addToInstrTrace(`LD V${register}, K`);
 
     this.registers[register] = key;
 
@@ -841,7 +848,7 @@ export class CHIP8Emulator {
   loadRegisterIntoDelayTimer(instr: number) {
     const register = (instr & 0x0f00) >> 8;
 
-    this.addToInstrTrace(`LD DT, V${register}`);
+    // this.addToInstrTrace(`LD DT, V${register}`);
 
     this.delayTimer = this.registers[register];
   }
@@ -855,7 +862,7 @@ export class CHIP8Emulator {
   loadRegisterIntoSoundTimer(instr: number) {
     const register = (instr & 0x0f00) >> 8;
 
-    this.addToInstrTrace(`LD ST, V${register}`);
+    // this.addToInstrTrace(`LD ST, V${register}`);
 
     this.soundTimer = this.registers[register];
   }
@@ -869,7 +876,7 @@ export class CHIP8Emulator {
   addRegisterToI(instr: number) {
     const register = (instr & 0x0f00) >> 8;
 
-    this.addToInstrTrace(`ADD I, V${register}`);
+    // this.addToInstrTrace(`ADD I, V${register}`);
 
     this.I += this.registers[register];
   }
@@ -884,7 +891,7 @@ export class CHIP8Emulator {
   assignIToSpriteMemory(instr: number) {
     const register = (instr & 0x0f00) >> 8;
 
-    this.addToInstrTrace(`LD F, V${register}`);
+    // this.addToInstrTrace(`LD F, V${register}`);
 
     this.I = this.registers[register] * 5;
   }
@@ -903,11 +910,12 @@ export class CHIP8Emulator {
   storeDigitsAtI(instr: number) {
     const register = (instr & 0x0f00) >> 8;
     const value = this.registers[register];
-    const hundreds = Math.floor(value / 100);
-    const tens = Math.floor((value % 100) / 10);
+    // ~~ is equivalent to Math.floor
+    const hundreds = ~~(value / 100);
+    const tens = ~~((value % 100) / 10);
     const ones = value % 10;
 
-    this.addToInstrTrace(`LD B, V${register}`);
+    // this.addToInstrTrace(`LD B, V${register}`);
 
     this.ram[this.I] = hundreds;
     this.ram[this.I + 1] = tens;
@@ -924,7 +932,7 @@ export class CHIP8Emulator {
   storeRegistersAtI(instr: number) {
     const register = (instr & 0x0f00) >> 8;
 
-    this.addToInstrTrace(`LD [I], V${register}`);
+    // this.addToInstrTrace(`LD [I], V${register}`);
 
     for (let i = 0; i <= register; i++) {
       this.ram[this.I + i] = this.registers[i];
@@ -941,7 +949,7 @@ export class CHIP8Emulator {
   loadRegisterFromI(instr: number) {
     const register = (instr & 0x0f00) >> 8;
 
-    this.addToInstrTrace(`LD V${register}, [I]`);
+    // this.addToInstrTrace(`LD V${register}, [I]`);
 
     for (let i = 0; i <= register; i++) {
       this.registers[i] = this.ram[this.I + i];
@@ -958,7 +966,7 @@ export class CHIP8Emulator {
    *
    * @param instr The instruction to execute
    */
-  async executeInstruction(instr: number) {
+  executeInstruction(instr: number) {
     const mostSignificantNibble = (instr & 0xf000) >> 12;
     const leastSignifiantNibble = instr & 0x000f;
     const leastSignificantByte = instr & 0x00ff;
@@ -1056,7 +1064,7 @@ export class CHIP8Emulator {
         break;
       case 0xd:
         // DRW VX, VY, N — DXYN
-        await this.draw(instr);
+        this.draw(instr);
         break;
       case 0xe:
         switch (instr & 0x00ff) {
@@ -1083,7 +1091,8 @@ export class CHIP8Emulator {
             break;
           case 0x0a:
             // LD Vx, K — Fx0A
-            await this.readKeyIntoRegister(instr);
+            this.readKeyInstruction = instr;
+            // this.readKeyIntoRegister(instr);
             break;
           case 0x15:
             // LD DT, Vx — Fx15
@@ -1128,6 +1137,58 @@ export class CHIP8Emulator {
     this.currentExecutionPromise = this.execute();
   }
 
+  async execute() {
+    while (
+      this.pc < this.fileEnd &&
+      !this.shouldHalt &&
+      this.stackPointer >= 0
+    ) {
+      if (
+        Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
+        EmuState.PAUSED
+      ) {
+        return;
+      }
+
+      // We flush the display every 60Hz, and each flush takes 4ms due to
+      // how setTimeout works.
+      const msPerTick = 750 / this.tickRate;
+      const start = performance.now();
+      for (let i = 0; i < this.tickRate; i++) {
+        // const start = performance.now();
+
+        if (this.readKeyInstruction !== -1) {
+          await this.display.print();
+          await this.readKeyIntoRegister(this.readKeyInstruction);
+          this.readKeyInstruction = -1;
+        } else {
+          this.tick();
+        }
+
+        while (performance.now() - start < msPerTick) {
+          if(this.display.canPrint()) {
+            await this.display.print();
+          }
+
+          if (
+            Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
+            EmuState.PAUSED
+          ) {
+            return;
+          }
+        }
+
+        if (this.display.canPrint()) {
+          await this.display.print();
+        }
+      }
+
+      if (this.display.canPrint()) {
+        await this.display.print();
+      }
+    }
+  }
+
   async gracefullyExit() {
     if (this.currentExecutionPromise) {
       await this.currentExecutionPromise;
@@ -1147,28 +1208,20 @@ export class CHIP8Emulator {
    * Executes the program until the end of the file is reached
    * or if the emulator is halted forcefully.
    */
-  async execute() {
-    while (this.pc < this.fileEnd && !this.shouldHalt) {
-      if (Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) === EmuState.PAUSED) {
-        break;
+  tick() {
+    const instr = this.getCurrentInstruction();
+    this.executeInstruction(instr);
+
+    // The timers should be decremented every 60Hz
+    if (performance.now() - this.lastTimerDecrement >= this.SIXTY_HZ) {
+      // await new Promise((resolve) => setTimeout(resolve, 0));
+      this.lastTimerDecrement = performance.now();
+      if (this.delayTimer > 0) {
+        this.delayTimer--;
       }
 
-      const instr = this.getCurrentInstruction();
-      await this.executeInstruction(instr);
-
-      if (this.stackPointer < 0) return;
-
-      // The timers should be decremented every 60Hz
-      if (performance.now() - this.lastTimerDecrement >= this.SIXTY_HZ) {
-        // await new Promise((resolve) => setTimeout(resolve, 0));
-        this.lastTimerDecrement = performance.now();
-        if (this.delayTimer > 0) {
-          this.delayTimer--;
-        }
-
-        if (this.soundTimer > 0) {
-          this.soundTimer--;
-        }
+      if (this.soundTimer > 0) {
+        this.soundTimer--;
       }
     }
   }

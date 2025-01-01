@@ -11,10 +11,7 @@ const config = {
   // Throttles the execution rate of the emulator.
   // This isn't actually throttling the emulator, but rather the rate at
   // which the display is updated, which in turn throttles the emulator.
-  executionWaitMS: 0,
-
-  // The default scale of the display
-  scale: 10,
+  tickRate: 1000,
 
   // Disables ghosting by clearing the display before drawing each frame
   disableGhosting: false,
@@ -35,7 +32,6 @@ export type WorkerPayload =
   | {
       action: "init";
       offscreenCanvas: OffscreenCanvas;
-      scale: number;
       program: Uint8Array;
       inputSharedBuffer: SharedArrayBuffer;
       signalBuffer: SharedArrayBuffer;
@@ -48,26 +44,46 @@ export type WorkerPayload =
 
 class OffscreenDisplay extends Display {
   ctx: OffscreenCanvasRenderingContext2D;
-  scale: number;
+  imageData: ImageData;
 
-  constructor(offscreenCanvas: OffscreenCanvas, scale: number) {
+  constructor(offscreenCanvas: OffscreenCanvas) {
     super();
     this.ctx = offscreenCanvas.getContext("2d")!;
-    this.scale = scale;
+    this.imageData = this.ctx.getImageData(0, 0, 64, 32);
   }
 
   clear() {
-    this.ctx.clearRect(0, 0, this.scale * 64, this.scale * 32);
+    this.ctx.clearRect(0, 0, 64, 32);
   }
 
   draw(x: number, y: number, r: number, g: number, b: number) {
-    this.ctx.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
-    this.ctx.fillRect(x * this.scale, y * this.scale, this.scale, this.scale);
+    const index = (x + y * 64) * 4;
+    this.imageData.data[index] = r;
+    this.imageData.data[index + 1] = g;
+    this.imageData.data[index + 2] = b;
+    this.imageData.data[index + 3] = 255;
   }
 
   async flush() {
-    // Allow the event loop to run
-    await new Promise((resolve) => setTimeout(resolve, config.executionWaitMS));
+
+    // const imageData = this.ctx.getImageData(0, 0, 64, 32);
+
+    // for (let i = 0; i < this.displayState.length; i++) {
+    //   if (this.displayState[i] === 1) {
+    //     imageData.data[i * 4] = this.primaryColor[0];
+    //     imageData.data[i * 4 + 1] = this.primaryColor[1];
+    //     imageData.data[i * 4 + 2] = this.primaryColor[2];
+    //     imageData.data[i * 4 + 3] = 255;
+    //   } else {
+    //     imageData.data[i * 4] = this.secondaryColor[0];
+    //     imageData.data[i * 4 + 1] = this.secondaryColor[1];
+    //     imageData.data[i * 4 + 2] = this.secondaryColor[2];
+    //     imageData.data[i * 4 + 3] = 255;
+    //   }
+    // }
+
+    this.ctx.putImageData(this.imageData, 0, 0);
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 }
 
@@ -79,15 +95,6 @@ function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
 
   // Update the emulator with the new configuration
   currentEmulator.applyConfig(config);
-
-  if ("scale" in emuConfig) {
-    // Resize the offscreen canvas
-    currentOffscreenCanvas.width = 64 * config.scale;
-    currentOffscreenCanvas.height = 32 * config.scale;
-    currentDisplay.scale = config.scale;
-
-    currentEmulator.display.print();
-  }
 
   if (emuConfig.primaryColor || emuConfig.secondaryColor) {
     console.log(
@@ -125,27 +132,24 @@ addEventListener("message", (event) => {
   if (data.action === "init") {
     const {
       offscreenCanvas,
-      scale,
       program,
       inputSharedBuffer,
       signalBuffer,
       config: emuConfig,
     } = data;
 
-    config.scale = scale;
-
     if (!currentOffscreenCanvas) {
       currentOffscreenCanvas = offscreenCanvas;
     }
 
     // Resize the offscreen canvas
-    currentOffscreenCanvas.width = 64 * scale;
-    currentOffscreenCanvas.height = 32 * scale;
+    currentOffscreenCanvas.width = 64;
+    currentOffscreenCanvas.height = 32;
 
     // Create a new instance of the input handler
     inputHandler = new Input(inputSharedBuffer);
 
-    currentDisplay = new OffscreenDisplay(currentOffscreenCanvas, scale);
+    currentDisplay = new OffscreenDisplay(currentOffscreenCanvas);
 
     // Create a new instance of the emulator
     currentEmulator = new CHIP8Emulator(program, {
