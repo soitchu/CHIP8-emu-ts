@@ -64,6 +64,8 @@ export abstract class Display {
 
     this.clear();
 
+    let hadGhostPixels = false;
+
     for (let i = 0; i < this.displayState.length; i++) {
       const x = i % Display.WIDTH;
       const y = ~~(i / Display.WIDTH);
@@ -72,7 +74,7 @@ export abstract class Display {
         this.draw(x, y, primaryColor[0], primaryColor[1], primaryColor[2]);
       } else {
         // The pixel is off, so decrease the power level (brightness) of the pixel
-        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.55);
+        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.22);
 
         // If the pixel was previously on, set the power level to max, i.e. max brightness
         if (this.prevDisplay[i] === 1) {
@@ -84,6 +86,10 @@ export abstract class Display {
         // Normalize the power level to be between 0 and 1, so it can
         // be multiplied by the color values
         const normalizedPowerLevel = newPowerLevel / 255;
+
+        if(normalizedPowerLevel > 0) {
+          hadGhostPixels = true;
+        }
 
         this.draw(
           x,
@@ -97,6 +103,10 @@ export abstract class Display {
         );
       }
     }
+
+    if(hadGhostPixels) {
+      this.queuePrint = true;
+    } 
 
     // Flush the display to the screen
     this.flush();
