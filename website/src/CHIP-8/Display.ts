@@ -1,29 +1,22 @@
 export abstract class Display {
-
   /**
    * The display is 64x32 pixels
    */
-  WIDTH = 64;
-  HEIGHT = 32;
+  static WIDTH = 64;
+  static HEIGHT = 32;
 
   /**
    * The display state is a 1D array of 0s and 1s. 0 indicates off, 1 indicates on.
    */
-  displayState: Uint8Array = new Uint8Array(
-    this.WIDTH * this.HEIGHT
-  );
+  displayState: Uint8Array = new Uint8Array(Display.WIDTH * Display.HEIGHT);
 
   /**
    * XOR'ing sprites can cause flicker, so we will implement a power level system
    * where the brightness of the pixel is reduced over time.
    */
-  prevDisplay: Uint8Array = new Uint8Array(
-    this.WIDTH * this.HEIGHT
-  );
+  prevDisplay: Uint8Array = new Uint8Array(Display.WIDTH * Display.HEIGHT);
 
-  powerLevel: Uint8Array = new Uint8Array(
-    this.WIDTH * this.HEIGHT
-  );
+  powerLevel: Uint8Array = new Uint8Array(Display.WIDTH * Display.HEIGHT);
 
   /**
    * Ghosting avoids flickers. Enabled by default. Set to false to disable.
@@ -39,9 +32,11 @@ export abstract class Display {
   primaryColor: number[] = [0x8d, 0xc6, 0xff];
   secondaryColor: number[] = [0x0, 0x0, 0x0];
 
+  queuePrint: boolean = false;
+
   abstract draw(x: number, y: number, r: number, g: number, b: number): void;
   abstract clear(): void;
-  abstract flush(): Promise<void>;
+  abstract flush(): void;
 
   reset(): void {
     this.displayState.fill(0);
@@ -49,8 +44,19 @@ export abstract class Display {
     this.powerLevel.fill(0);
   }
 
+  printIfQueued(): void {
+    if (this.queuePrint) {
+      this.print();
+    }
+  }
 
-  async print(): Promise<void> {
+  print(): void {
+    if (performance.now() - this.lastDrawTime < 1000 / 60) {
+      this.queuePrint = true;
+      return;
+    }
+
+    this.queuePrint = false;
     this.lastDrawTime = performance.now();
 
     const primaryColor = this.primaryColor;
@@ -59,8 +65,8 @@ export abstract class Display {
     this.clear();
 
     for (let i = 0; i < this.displayState.length; i++) {
-      const x = i % this.WIDTH;
-      const y = Math.floor(i / this.WIDTH);
+      const x = i % Display.WIDTH;
+      const y = ~~(i / Display.WIDTH);
       if (this.displayState[i] === 1) {
         // The pixel is on, so set the power level to max
         this.draw(x, y, primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -73,9 +79,7 @@ export abstract class Display {
           this.powerLevel[i] = 255;
         }
 
-        const newPowerLevel = this.disableGhosting
-          ? 0
-          : Math.floor(this.powerLevel[i]);
+        const newPowerLevel = this.disableGhosting ? 0 : ~~this.powerLevel[i];
 
         // Normalize the power level to be between 0 and 1, so it can
         // be multiplied by the color values
@@ -84,15 +88,18 @@ export abstract class Display {
         this.draw(
           x,
           y,
-          primaryColor[0] * normalizedPowerLevel + secondaryColor[0] * (1 - normalizedPowerLevel),
-          primaryColor[1] * normalizedPowerLevel + secondaryColor[1] * (1 - normalizedPowerLevel),
-          primaryColor[2] * normalizedPowerLevel + secondaryColor[2] * (1 - normalizedPowerLevel)
+          primaryColor[0] * normalizedPowerLevel +
+            secondaryColor[0] * (1 - normalizedPowerLevel),
+          primaryColor[1] * normalizedPowerLevel +
+            secondaryColor[1] * (1 - normalizedPowerLevel),
+          primaryColor[2] * normalizedPowerLevel +
+            secondaryColor[2] * (1 - normalizedPowerLevel)
         );
       }
     }
 
     // Flush the display to the screen
-    await this.flush();
+    this.flush();
     this.prevDisplay = this.displayState.slice();
   }
 }

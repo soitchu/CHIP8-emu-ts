@@ -1,10 +1,16 @@
 import { CHIP8Emulator } from "./CHIP-8/index.js";
 import { Input } from "./CHIP-8/Input.js";
 import { Display } from "./CHIP-8/Display.js";
+import { Mutex } from "./helper.js";
+
+export enum DisplaySignal {
+  IS_COPYING = 0,
+  IS_DRAWING = 1,
+  IDLE = 2,
+}
 
 let currentEmulator: CHIP8Emulator | null = null;
 let inputHandler: Input | null = null;
-let currentOffscreenCanvas: OffscreenCanvas | null = null;
 let currentDisplay: OffscreenDisplay | null = null;
 
 const config = {
@@ -31,10 +37,11 @@ const config = {
 export type WorkerPayload =
   | {
       action: "init";
-      offscreenCanvas: OffscreenCanvas;
       program: Uint8Array;
       inputSharedBuffer: SharedArrayBuffer;
+      frameBuffer: SharedArrayBuffer;
       signalBuffer: SharedArrayBuffer;
+      displaySignalBuffer: SharedArrayBuffer;
       config: Partial<typeof config>;
     }
   | {
@@ -43,35 +50,41 @@ export type WorkerPayload =
     };
 
 class OffscreenDisplay extends Display {
-  ctx: OffscreenCanvasRenderingContext2D;
-  imageData: ImageData;
+  imageData: Uint8Array;
+  mutex: Mutex;
 
-  constructor(offscreenCanvas: OffscreenCanvas) {
+  constructor(imageData: Uint8Array, displaySignalBuffer: SharedArrayBuffer) {
     super();
-    this.ctx = offscreenCanvas.getContext("2d")!;
-    this.imageData = this.ctx.getImageData(0, 0, 64, 32);
+    this.imageData = imageData;
+    this.mutex = new Mutex(displaySignalBuffer);
   }
 
   clear() {
-    this.ctx.clearRect(0, 0, 64, 32);
+    this.mutex.lock();
+    // Atomics.wait(this.signalArray, 0, DisplaySignal.IS_COPYING);
+    // Atomics.store(this.signalArray, 0, DisplaySignal.IS_DRAWING);
+
+    this.imageData.fill(0);
   }
 
   draw(x: number, y: number, r: number, g: number, b: number) {
     const index = (x + y * 64) * 4;
-    this.imageData.data[index] = r;
-    this.imageData.data[index + 1] = g;
-    this.imageData.data[index + 2] = b;
-    this.imageData.data[index + 3] = 255;
+
+    this.imageData[index] = r;
+    this.imageData[index + 1] = g;
+    this.imageData[index + 2] = b;
+    this.imageData[index + 3] = 255;
   }
 
-  async flush() {
-    this.ctx.putImageData(this.imageData, 0, 0);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  flush() {
+    this.mutex.unlock();
+    // Atomics.store(this.signalArray, 0, DisplaySignal.IS_COPYING);
+    // Atomics.notify(this.signalArray, 0);
   }
 }
 
 async function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
-  if (!currentEmulator || !currentOffscreenCanvas || !currentDisplay) return;
+  if (!currentEmulator || !currentDisplay) return;
 
   // Update the configuration
   Object.assign(config, emuConfig);
@@ -90,13 +103,12 @@ async function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
     currentDisplay.secondaryColor =
       emuConfig.secondaryColor || currentDisplay.secondaryColor;
 
-    await currentEmulator.display.print();
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    currentEmulator.display.print();
   }
 
   if (emuConfig.program) {
     currentEmulator.init(emuConfig.program, {});
-    await currentEmulator.display.print();
+    currentEmulator.display.print();
   }
 
   if (!isInit) {
@@ -116,25 +128,20 @@ addEventListener("message", async (event) => {
 
   if (data.action === "init") {
     const {
-      offscreenCanvas,
       program,
       inputSharedBuffer,
+      displaySignalBuffer,
       signalBuffer,
       config: emuConfig,
     } = data;
 
-    if (!currentOffscreenCanvas) {
-      currentOffscreenCanvas = offscreenCanvas;
-    }
-
-    // Resize the offscreen canvas
-    currentOffscreenCanvas.width = 64;
-    currentOffscreenCanvas.height = 32;
-
     // Create a new instance of the input handler
     inputHandler = new Input(inputSharedBuffer);
 
-    currentDisplay = new OffscreenDisplay(currentOffscreenCanvas);
+    currentDisplay = new OffscreenDisplay(
+      new Uint8Array(data.frameBuffer),
+      displaySignalBuffer
+    );
 
     // Create a new instance of the emulator
     currentEmulator = new CHIP8Emulator(program, {

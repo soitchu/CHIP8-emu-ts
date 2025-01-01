@@ -158,11 +158,10 @@ export class CHIP8Emulator {
   debug: boolean = false;
 
   /**
-   * Current execution promise. Used to gracefully handle pausing
+   * Used to calculate the number of instructions per second
    */
-  currentExecutionPromise: Promise<void> | null = null;
-
-  readKeyInstruction: number = -1;
+  ips: number = 0;
+  numberOfHertzPassed: number = 0;
 
   constructor(fileBinary: Uint8Array, config: EmuConfig) {
     this.init(fileBinary, config);
@@ -686,7 +685,7 @@ export class CHIP8Emulator {
    * is outside the coordinates of the display, it wraps around to the opposite side of
    * the screen.
    */
-  async draw(instr: number) {
+  draw(instr: number) {
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
     const bytes = instr & 0x000f;
 
@@ -699,8 +698,8 @@ export class CHIP8Emulator {
     const valueX = this.registers[registerX];
     const valueY = this.registers[registerY];
 
-    const displayWidth = this.display.WIDTH;
-    const displayHeight = this.display.HEIGHT;
+    const displayWidth = Display.WIDTH;
+    const displayHeight = Display.HEIGHT;
     const displayState = this.display.displayState;
 
     const xCoord = valueX % displayWidth;
@@ -734,7 +733,9 @@ export class CHIP8Emulator {
       }
     }
 
-    await this.display.print();
+    // This has major performance implications, but it minimizes display lag and flickering
+    // It makes sense to do this for games, but not for other applications
+    this.display.print();
   }
 
   /**
@@ -796,11 +797,13 @@ export class CHIP8Emulator {
    * All execution stops until a key is pressed,
    * then the value of that key is stored in Vx.
    */
-  async readKey(): Promise<number | undefined> {
+  readKey(): number | undefined {
     let wasActive = false;
     let activeIndex = -1;
 
     while (true) {
+      this.display.printIfQueued();
+
       if (
         Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
         EmuState.PAUSED
@@ -822,13 +825,12 @@ export class CHIP8Emulator {
         }
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 0));
     }
   }
 
-  async readKeyIntoRegister(instr: number) {
+  readKeyIntoRegister(instr: number) {
     const register = (instr & 0x0f00) >> 8;
-    const key = await this.readKey();
+    const key = this.readKey();
 
     if (key === undefined) return false;
 
@@ -967,7 +969,7 @@ export class CHIP8Emulator {
    *
    * @param instr The instruction to execute
    */
-  async executeInstruction(instr: number) {
+  executeInstruction(instr: number) {
     const mostSignificantNibble = (instr & 0xf000) >> 12;
     const leastSignifiantNibble = instr & 0x000f;
     const leastSignificantByte = instr & 0x00ff;
@@ -1065,7 +1067,7 @@ export class CHIP8Emulator {
         break;
       case 0xd:
         // DRW VX, VY, N — DXYN
-        await this.draw(instr);
+        this.draw(instr);
         break;
       case 0xe:
         switch (instr & 0x00ff) {
@@ -1092,8 +1094,7 @@ export class CHIP8Emulator {
             break;
           case 0x0a:
             // LD Vx, K — Fx0A
-            this.readKeyInstruction = instr;
-            // this.readKeyIntoRegister(instr);
+            this.readKeyIntoRegister(instr);
             break;
           case 0x15:
             // LD DT, Vx — Fx15
@@ -1134,14 +1135,14 @@ export class CHIP8Emulator {
     return Math.floor(Math.random() * 256);
   }
 
+
   start() {
-    this.currentExecutionPromise = this.execute();
+    this.execute();
   }
 
-  async execute() {
-    // We flush the display every 60Hz, and each flush takes 4ms due to
-    // how setTimeout works.
-    const msPerTick = 750 / this.tickRate;
+  execute() {
+    const msPerTick = 1000 / this.tickRate;
+    const throttled = this.tickRate >= 0;
 
     while (
       this.pc < this.fileEnd &&
@@ -1155,24 +1156,17 @@ export class CHIP8Emulator {
         return;
       }
 
-      const start = performance.now();
+      let start: number;
 
-      if (
-        Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
-        EmuState.PAUSED
-      ) {
-        return;
-      }
+      // Throttle the execution of the emulator
+      // Note: we need to put it in an if statement since
+      // performance.now() is relatively expensive
+      if(throttled) start = performance.now();
 
-      if (this.readKeyInstruction !== -1) {
-        await this.display.print();
-        await this.readKeyIntoRegister(this.readKeyInstruction);
-        this.readKeyInstruction = -1;
-      } else {
-        await this.tick();
-      }
+      this.tick();
 
-      while (performance.now() - start < msPerTick) {
+      // @ts-expect-error TS is being dumb, start is defined
+      while (throttled && performance.now() - start < msPerTick) {
         if (
           Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
           EmuState.PAUSED
@@ -1183,17 +1177,7 @@ export class CHIP8Emulator {
     }
   }
 
-  async gracefullyExit() {
-    if (this.currentExecutionPromise) {
-      await this.currentExecutionPromise;
-    }
-  }
-
-  async resume() {
-    console.log("Gracefully exiting");
-    await this.gracefullyExit();
-
-    console.log("Resuming");
+  resume() {
     Atomics.store(this.signals, CHIP8Emulator.STATE_SIGNAL, 0);
     this.start();
   }
@@ -1202,13 +1186,24 @@ export class CHIP8Emulator {
    * Executes the program until the end of the file is reached
    * or if the emulator is halted forcefully.
    */
-  async tick() {
+  tick() {
     const instr = this.getCurrentInstruction();
-    await this.executeInstruction(instr);
+    this.executeInstruction(instr);
+    this.ips++;
 
     // The timers should be decremented every 60Hz
     if (performance.now() - this.lastTimerDecrement >= this.SIXTY_HZ) {
-      // await new Promise((resolve) => setTimeout(resolve, 0));
+      this.display.printIfQueued();
+
+      this.numberOfHertzPassed++;
+
+      if(this.numberOfHertzPassed === 60) {
+        console.log("IPS: ", this.ips, performance.now());
+
+        this.numberOfHertzPassed = 0;
+        this.ips = 0;
+      }
+
       this.lastTimerDecrement = performance.now();
       if (this.delayTimer > 0) {
         this.delayTimer--;
