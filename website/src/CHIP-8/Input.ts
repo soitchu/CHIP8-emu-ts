@@ -22,8 +22,6 @@ export class Input {
     v: 0xf,
   };
 
-  emu: CHIP8Emulator;
-  hasBeenRegistered: boolean = false;
   activeKeys = new Uint8Array(16);
   isUsingSharedArrayBuffer = false;
 
@@ -39,43 +37,38 @@ export class Input {
   }
 
   isActive(key: number): boolean {
-    if(this.isUsingSharedArrayBuffer) {
+    if (this.isUsingSharedArrayBuffer) {
       return Atomics.load(this.activeKeys, key) === 1;
     }
 
     return this.activeKeys[key] === 1;
   }
 
-  keyDown(event: string): void {
-    if (!Input.KEY_MAP[event]) {
+  keyDown(key: keyof typeof Input.KEY_MAP): void {
+    if (!Input.KEY_MAP[key]) {
       return;
     }
 
-    const keyAddress = Input.KEY_MAP[event];
- 
-    if(this.isUsingSharedArrayBuffer) {
+    const keyAddress = Input.KEY_MAP[key];
+
+    if (this.isUsingSharedArrayBuffer) {
       Atomics.store(this.activeKeys, keyAddress, 1);
     } else {
       this.activeKeys[keyAddress] = 1;
     }
   }
 
-  keyUp(event: string): void {
-    if (!Input.KEY_MAP[event]) {
+  keyUp(key: keyof typeof Input.KEY_MAP): void {
+    if (!Input.KEY_MAP[key]) {
       return;
     }
 
-    const keyAddress = Input.KEY_MAP[event];
+    const keyAddress = Input.KEY_MAP[key];
 
-    if(this.isUsingSharedArrayBuffer) {
+    if (this.isUsingSharedArrayBuffer) {
       Atomics.store(this.activeKeys, keyAddress, 0);
     } else {
       this.activeKeys[keyAddress] = 0;
     }
-  }
-
-  registerEmulator(emu: CHIP8Emulator) {
-    this.hasBeenRegistered = true;
-    this.emu = emu;
   }
 }

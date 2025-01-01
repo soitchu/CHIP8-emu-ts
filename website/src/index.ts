@@ -157,7 +157,7 @@ const inputArray = new Uint8Array(inputSharedBuffer);
 let worker = new Chip8Worker() as Worker;
 let offscreenHasBeenTransferred = false;
 
-async function fetchProgram(url) {
+async function fetchProgram(url: string) {
   const response = await fetch(url);
   const buffer = await response.arrayBuffer();
   return new Uint8Array(buffer);
@@ -267,11 +267,18 @@ window.addEventListener("resize", () => {
 
 // Send keyboard events to the worker
 window.addEventListener("keydown", (e) => {
-  Atomics.store(inputArray, Input.KEY_MAP[e.key], 1);
+  const key = e.key.toLowerCase() as keyof typeof Input.KEY_MAP;
+
+  if(!(key in Input.KEY_MAP)) return; 
+  Atomics.store(inputArray, Input.KEY_MAP[key], 1);
 });
 
 window.addEventListener("keyup", (e) => {
-  Atomics.store(inputArray, Input.KEY_MAP[e.key], 0);
+  const key = e.key.toLowerCase() as keyof typeof Input.KEY_MAP;
+
+  if(!(key in Input.KEY_MAP)) return; 
+  
+  Atomics.store(inputArray, Input.KEY_MAP[key], 0);
 });
 
 function postMessage(data: WorkerPayload, transfer: Transferable[] = []) {
@@ -500,11 +507,11 @@ let DMenu = new dropDownMenu(
           text: "Tick Rate",
           textBox: true,
           value: config.tickRate,
-          onInput: function (event) {
+          onInput: function (event: InputEvent) {
             postMessage({
               action: "config",
               config: {
-                tickRate: parseInt(event.target.value),
+                tickRate: parseInt((event.target as HTMLInputElement).value),
               },
             });
           },
@@ -562,10 +569,11 @@ let DMenu = new dropDownMenu(
           id: "primaryColor",
           classes: ["custom-color", "none"],
           value: localStorage.getItem("custom-primaryColor") || "#000000",
-          onInput: function (event) {
-            const color = hexToRGBA(event.target.value);
+          onInput: function (event: InputEvent) {
+            const target = event.target as HTMLInputElement;
+            const color = hexToRGBA(target.value);
 
-            localStorage.setItem("custom-primaryColor", event.target.value);
+            localStorage.setItem("custom-primaryColor", target.value);
 
             postMessage({
               action: "config",
@@ -581,10 +589,11 @@ let DMenu = new dropDownMenu(
           id: "secondaryColor",
           classes: ["none", "custom-color"],
           value: localStorage.getItem("custom-secondaryColor") || "#FFFFFF",
-          onInput: function (event) {
-            const color = hexToRGBA(event.target.value);
+          onInput: function (event: InputEvent) {
+            const target = event.target as HTMLInputElement;
+            const color = hexToRGBA(target.value);
 
-            localStorage.setItem("custom-secondaryColor", event.target.value);
+            localStorage.setItem("custom-secondaryColor", target.value);
 
             postMessage({
               action: "config",
@@ -674,7 +683,7 @@ let DMenu = new dropDownMenu(
   menuCon
 );
 
-const drawWorkerInstance = displayWorker() as unknown as Worker;
+const drawWorkerInstance = new displayWorker();
 const offscreenCanvas = display.transferControlToOffscreen();
 
 drawWorkerInstance.postMessage({
@@ -685,5 +694,3 @@ drawWorkerInstance.postMessage({
 
 DMenu.open("initial");
 init();
-
-window["DMenu"] = DMenu;

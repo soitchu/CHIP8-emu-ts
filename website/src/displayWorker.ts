@@ -15,9 +15,9 @@ function draw() {
   const currentImageData = offscreenCtx!.getImageData(0, 0, Display.WIDTH, Display.HEIGHT);
   const sharedImageBuffer = new Uint8ClampedArray(frameBuffer!);
 
-  // mutex!.lock();
+  mutex!.lock();
   currentImageData.data.set(sharedImageBuffer);
-  // mutex!.unlock();
+  mutex!.unlock();
 
   offscreenCtx!.putImageData(currentImageData, 0, 0);
 

@@ -61,9 +61,6 @@ class OffscreenDisplay extends Display {
 
   clear() {
     this.mutex.lock();
-    // Atomics.wait(this.signalArray, 0, DisplaySignal.IS_COPYING);
-    // Atomics.store(this.signalArray, 0, DisplaySignal.IS_DRAWING);
-
     this.imageData.fill(0);
   }
 
@@ -78,8 +75,6 @@ class OffscreenDisplay extends Display {
 
   flush() {
     this.mutex.unlock();
-    // Atomics.store(this.signalArray, 0, DisplaySignal.IS_COPYING);
-    // Atomics.notify(this.signalArray, 0);
   }
 }
 

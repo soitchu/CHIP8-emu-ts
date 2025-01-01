@@ -35,7 +35,7 @@ export class CHIP8Emulator {
    * it is 0, then the emulator will continue running. If SharedArrayBuffer is not
    * supported, then `pause` and `continue` methods will not work.
    */
-  signals: Uint8Array;
+  signals!: Uint8Array;
 
   /**
    * 4KB of RAM
@@ -124,13 +124,6 @@ export class CHIP8Emulator {
   shouldHalt: boolean = false;
 
   /**
-   * Used to rate limit the display rate to 60Hz
-   */
-  lastDraw: number = 0;
-  DISPLAY_RATE = this.SIXTY_HZ;
-  drawTimeout: ReturnType<typeof setTimeout>;
-
-  /**
    * Restart the emulator when it reaches the end of the file.
    */
   restartOnEnd: boolean = false;
@@ -138,12 +131,12 @@ export class CHIP8Emulator {
   /**
    * Display interface to draw to the screen
    */
-  display: Display;
+  display!: Display;
 
   /**
    * Input interface to get input from the user
    */
-  input: Input;
+  input!: Input;
 
   /**
    * The instruction trace. Used for debugging. Instructions are pushed to
@@ -179,8 +172,6 @@ export class CHIP8Emulator {
     this.soundTimer = 0;
     this.lastTimerDecrement = performance.now();
     this.shouldHalt = false;
-    this.lastDraw = 0;
-    clearTimeout(this.drawTimeout);
     this.instrTrace = [];
 
     this.display?.reset();
@@ -239,7 +230,6 @@ export class CHIP8Emulator {
     }
 
     if (config.input) {
-      config.input.registerEmulator(this);
       this.input = config.input;
     }
 
