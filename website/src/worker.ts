@@ -65,29 +65,12 @@ class OffscreenDisplay extends Display {
   }
 
   async flush() {
-
-    // const imageData = this.ctx.getImageData(0, 0, 64, 32);
-
-    // for (let i = 0; i < this.displayState.length; i++) {
-    //   if (this.displayState[i] === 1) {
-    //     imageData.data[i * 4] = this.primaryColor[0];
-    //     imageData.data[i * 4 + 1] = this.primaryColor[1];
-    //     imageData.data[i * 4 + 2] = this.primaryColor[2];
-    //     imageData.data[i * 4 + 3] = 255;
-    //   } else {
-    //     imageData.data[i * 4] = this.secondaryColor[0];
-    //     imageData.data[i * 4 + 1] = this.secondaryColor[1];
-    //     imageData.data[i * 4 + 2] = this.secondaryColor[2];
-    //     imageData.data[i * 4 + 3] = 255;
-    //   }
-    // }
-
     this.ctx.putImageData(this.imageData, 0, 0);
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 }
 
-function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
+async function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
   if (!currentEmulator || !currentOffscreenCanvas || !currentDisplay) return;
 
   // Update the configuration
@@ -106,12 +89,14 @@ function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
       emuConfig.primaryColor || currentDisplay.primaryColor;
     currentDisplay.secondaryColor =
       emuConfig.secondaryColor || currentDisplay.secondaryColor;
-    currentEmulator.display.print();
+
+    await currentEmulator.display.print();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
   }
 
   if (emuConfig.program) {
     currentEmulator.init(emuConfig.program, {});
-    currentEmulator.display.print();
+    await currentEmulator.display.print();
   }
 
   if (!isInit) {
@@ -124,7 +109,7 @@ function applyConfig(emuConfig: Partial<typeof config>, isInit = false) {
   }
 }
 
-addEventListener("message", (event) => {
+addEventListener("message", async (event) => {
   const data = event.data as WorkerPayload;
 
   console.log("Worker received message", data);
@@ -160,13 +145,13 @@ addEventListener("message", (event) => {
       signalBuffer,
     });
 
-    applyConfig(emuConfig, true);
+    await applyConfig(emuConfig, true);
 
     Atomics.store(currentEmulator.signals, CHIP8Emulator.STATE_SIGNAL, 0);
 
     // Start the emulator
     currentEmulator.start();
   } else if (data.action === "config") {
-    applyConfig(data.config);
+    await applyConfig(data.config);
   }
 });

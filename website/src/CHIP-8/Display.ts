@@ -49,10 +49,6 @@ export abstract class Display {
     this.powerLevel.fill(0);
   }
 
-  canPrint(): boolean {
-    // return true;
-    return performance.now() - this.lastDrawTime >= 1000 / 240;
-  }
 
   async print(): Promise<void> {
     this.lastDrawTime = performance.now();

@@ -19,7 +19,7 @@ export interface EmuConfig {
 export class CHIP8Emulator {
   SIXTY_HZ = 1000 / 60;
 
-  tickRate = 5;
+  tickRate = 1000;
 
   /**
    * The index at which the state signal is stored
@@ -687,7 +687,6 @@ export class CHIP8Emulator {
    * the screen.
    */
   async draw(instr: number) {
-    // return;
     const [registerX, registerY] = this.getArithmeticRegisters(instr);
     const bytes = instr & 0x000f;
 
@@ -706,7 +705,7 @@ export class CHIP8Emulator {
 
     const xCoord = valueX % displayWidth;
     const yCoord = valueY % displayHeight;
-    
+
     for (let i = 0; i < bytes; i++) {
       const bits = this.ram[this.I + i];
       const cy = (yCoord + i) % displayHeight;
@@ -734,6 +733,8 @@ export class CHIP8Emulator {
         break;
       }
     }
+
+    await this.display.print();
   }
 
   /**
@@ -966,7 +967,7 @@ export class CHIP8Emulator {
    *
    * @param instr The instruction to execute
    */
-  executeInstruction(instr: number) {
+  async executeInstruction(instr: number) {
     const mostSignificantNibble = (instr & 0xf000) >> 12;
     const leastSignifiantNibble = instr & 0x000f;
     const leastSignificantByte = instr & 0x00ff;
@@ -1064,7 +1065,7 @@ export class CHIP8Emulator {
         break;
       case 0xd:
         // DRW VX, VY, N — DXYN
-        this.draw(instr);
+        await this.draw(instr);
         break;
       case 0xe:
         switch (instr & 0x00ff) {
@@ -1138,6 +1139,10 @@ export class CHIP8Emulator {
   }
 
   async execute() {
+    // We flush the display every 60Hz, and each flush takes 4ms due to
+    // how setTimeout works.
+    const msPerTick = 750 / this.tickRate;
+
     while (
       this.pc < this.fileEnd &&
       !this.shouldHalt &&
@@ -1150,41 +1155,30 @@ export class CHIP8Emulator {
         return;
       }
 
-      // We flush the display every 60Hz, and each flush takes 4ms due to
-      // how setTimeout works.
-      const msPerTick = 750 / this.tickRate;
       const start = performance.now();
-      for (let i = 0; i < this.tickRate; i++) {
-        // const start = performance.now();
 
-        if (this.readKeyInstruction !== -1) {
-          await this.display.print();
-          await this.readKeyIntoRegister(this.readKeyInstruction);
-          this.readKeyInstruction = -1;
-        } else {
-          this.tick();
-        }
-
-        while (performance.now() - start < msPerTick) {
-          if(this.display.canPrint()) {
-            await this.display.print();
-          }
-
-          if (
-            Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
-            EmuState.PAUSED
-          ) {
-            return;
-          }
-        }
-
-        if (this.display.canPrint()) {
-          await this.display.print();
-        }
+      if (
+        Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
+        EmuState.PAUSED
+      ) {
+        return;
       }
 
-      if (this.display.canPrint()) {
+      if (this.readKeyInstruction !== -1) {
         await this.display.print();
+        await this.readKeyIntoRegister(this.readKeyInstruction);
+        this.readKeyInstruction = -1;
+      } else {
+        await this.tick();
+      }
+
+      while (performance.now() - start < msPerTick) {
+        if (
+          Atomics.load(this.signals, CHIP8Emulator.STATE_SIGNAL) ===
+          EmuState.PAUSED
+        ) {
+          return;
+        }
       }
     }
   }
@@ -1208,9 +1202,9 @@ export class CHIP8Emulator {
    * Executes the program until the end of the file is reached
    * or if the emulator is halted forcefully.
    */
-  tick() {
+  async tick() {
     const instr = this.getCurrentInstruction();
-    this.executeInstruction(instr);
+    await this.executeInstruction(instr);
 
     // The timers should be decremented every 60Hz
     if (performance.now() - this.lastTimerDecrement >= this.SIXTY_HZ) {
