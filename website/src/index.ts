@@ -222,12 +222,14 @@ function pauseEmulator() {
 
 function calculateCanvasScale() {
   return Math.min(
-    Math.floor((container.offsetWidth - (isMenuOpen ? 300 : 0)) / Display.WIDTH),
+    Math.floor(
+      (container.offsetWidth - (isMenuOpen ? 300 : 0)) / Display.WIDTH
+    ),
     Math.floor(container.offsetHeight / Display.HEIGHT)
   );
 }
 
-function hexToRGBA(hex) {
+function hexToRGBA(hex: string) {
   // Remove the '#' if present
   if (hex.startsWith("#")) {
     hex = hex.slice(1);
@@ -251,13 +253,14 @@ function changeScale(newScale: number) {
   scale = newScale;
 
   const translateX =
-    (container.offsetWidth - (isMenuOpen ? 300 : 0) - Display.WIDTH * scale) / 2;
+    (container.offsetWidth - (isMenuOpen ? 300 : 0) - Display.WIDTH * scale) /
+    2;
   const translateY = (container.offsetHeight - Display.HEIGHT * scale) / 2;
 
   display.style.transform = `translate(calc(${
-    50 * newScale
-  }% - ${translateX}px), calc(${
-    50 * newScale
+    (100 * newScale) / 2 - 50
+  }% + ${translateX}px), calc(${
+    (100 * newScale) / 2 - 50
   }% + ${translateY}px)) scale(${newScale})`;
 }
 
@@ -269,15 +272,15 @@ window.addEventListener("resize", () => {
 window.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase() as keyof typeof Input.KEY_MAP;
 
-  if(!(key in Input.KEY_MAP)) return; 
+  if (!(key in Input.KEY_MAP)) return;
   Atomics.store(inputArray, Input.KEY_MAP[key], 1);
 });
 
 window.addEventListener("keyup", (e) => {
   const key = e.key.toLowerCase() as keyof typeof Input.KEY_MAP;
 
-  if(!(key in Input.KEY_MAP)) return; 
-  
+  if (!(key in Input.KEY_MAP)) return;
+
   Atomics.store(inputArray, Input.KEY_MAP[key], 0);
 });
 
@@ -345,17 +348,7 @@ const customColors = [
     name: "Palette #3 - Inverted",
     primary: "#F95700",
     secondary: "#FFFFFF",
-  },
-  {
-    name: "Palette #4",
-    primary: "#02343F",
-    secondary: "#F0EDCC",
-  },
-  {
-    name: "Palette #4 - Inverted",
-    primary: "#F0EDCC",
-    secondary: "#02343F",
-  },
+  }
 ];
 
 function deselectROMs(selectedScene: "demos" | "games" | "programs") {
@@ -420,14 +413,14 @@ function loadConfig() {
   try {
     if (theme === "theme-custom") {
       const primaryColor = localStorage.getItem("custom-primaryColor");
-      config.primaryColor = hexToRGBA(primaryColor);
+      config.primaryColor = hexToRGBA(primaryColor as string);
     }
   } catch {}
 
   try {
     if (theme === "theme-custom") {
       const secondaryColor = localStorage.getItem("custom-secondaryColor");
-      config.secondaryColor = hexToRGBA(secondaryColor);
+      config.secondaryColor = hexToRGBA(secondaryColor as string);
     }
   } catch {}
 
@@ -460,7 +453,7 @@ let DMenu = new dropDownMenu(
     {
       id: "initial",
       heading: {
-        text: "Settings",
+        html: `<div class="menuItemIcon menuItemIconBack"></div><div class="menuItemText">Settings</div>`,
         hideArrow: true,
         callback: () => {
           menuCon.style.transform = "translateX(100%)";
@@ -474,13 +467,11 @@ let DMenu = new dropDownMenu(
           text: "ROMs",
           iconID: "romIcon",
           open: "roms",
-          subMenu: true,
         },
         {
           text: "Theme",
           iconID: "themeIcon",
           open: "theme",
-          subMenu: true,
         },
         {
           text: "Enable Ghosting",
@@ -506,7 +497,7 @@ let DMenu = new dropDownMenu(
         {
           text: "Tick Rate",
           textBox: true,
-          value: config.tickRate,
+          value: config.tickRate.toString(),
           onInput: function (event: InputEvent) {
             postMessage({
               action: "config",
@@ -624,19 +615,16 @@ let DMenu = new dropDownMenu(
           text: "Demos",
           iconID: "demoIcon",
           open: "demos",
-          subMenu: true,
         },
         {
           text: "Games",
           iconID: "gamesIcon",
           open: "games",
-          subMenu: true,
         },
         {
           text: "Programs",
           iconID: "programIcon",
           open: "programs",
-          subMenu: true,
         },
       ],
     },
@@ -686,11 +674,14 @@ let DMenu = new dropDownMenu(
 const drawWorkerInstance = new displayWorker();
 const offscreenCanvas = display.transferControlToOffscreen();
 
-drawWorkerInstance.postMessage({
-  mutexBuffer: displaySignalBuffer,
-  offscreenCanvas,
-  frameBuffer,
-}, [offscreenCanvas]);
+drawWorkerInstance.postMessage(
+  {
+    mutexBuffer: displaySignalBuffer,
+    offscreenCanvas,
+    frameBuffer,
+  },
+  [offscreenCanvas]
+);
 
 DMenu.open("initial");
 init();

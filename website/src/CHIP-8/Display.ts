@@ -74,7 +74,7 @@ export abstract class Display {
         this.draw(x, y, primaryColor[0], primaryColor[1], primaryColor[2]);
       } else {
         // The pixel is off, so decrease the power level (brightness) of the pixel
-        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.22);
+        this.powerLevel[i] = Math.max(0, this.powerLevel[i] / 1.8);
 
         // If the pixel was previously on, set the power level to max, i.e. max brightness
         if (this.prevDisplay[i] === 1) {
