@@ -1,7 +1,7 @@
-import { CHIP8Emulator } from "./CHIP-8/index.js";
-import { Input } from "./CHIP-8/Input.js";
-import { Display } from "./CHIP-8/Display.js";
-import { Mutex } from "./helper.js";
+import { CHIP8Emulator } from "../CHIP-8/index.js";
+import { Input } from "../CHIP-8/Input.js";
+import { Display } from "../CHIP-8/Display.js";
+import { Mutex } from "../helper.js";
 
 export enum DisplaySignal {
   IS_COPYING = 0,

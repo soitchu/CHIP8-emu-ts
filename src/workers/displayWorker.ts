@@ -1,5 +1,5 @@
-import { Display } from "./CHIP-8/Display";
-import { Mutex } from "./helper";
+import { Display } from "../CHIP-8/Display";
+import { Mutex } from "../helper";
 
 export interface DisplayWorkerPayload {
   offscreenCanvas: OffscreenCanvas;

@@ -1,9 +1,9 @@
 import { CHIP8Emulator, EmuState } from "./CHIP-8";
 import { Display } from "./CHIP-8/Display";
 import { Input } from "./CHIP-8/Input";
-import { type WorkerPayload } from "./worker";
-import Chip8Worker from "./worker?worker";
-import displayWorker from "./displayWorker?worker";
+import { type WorkerPayload } from "./workers/emuWorker";
+import Chip8Worker from "./workers/emuWorker?worker";
+import displayWorker from "./workers/displayWorker?worker";
 import { hexToRGBA } from "./helper";
 
 export class CHIP8Host {
