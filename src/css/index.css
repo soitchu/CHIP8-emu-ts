@@ -49,3 +49,17 @@ canvas {
 .none {
   display: none;
 }
+
+#customROM {
+  display: none;
+}
+
+#customROMLabel {
+  width: 300px;
+}
+
+#customROMValue {
+  width: 100%;
+  text-align: left;
+  margin-top: 10px;
+}

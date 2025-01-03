@@ -1,6 +1,6 @@
 import { Display } from "./CHIP-8/Display";
 import { CHIP8Host } from "./Chip8Host";
-import { hexToRGBA } from "./helper";
+import { arrayBufferToBase64, base64ToArrayBuffer, hexToRGBA } from "./helper";
 
 export class EmuMenu {
   // Whether the menu is open
@@ -231,56 +231,40 @@ export class EmuMenu {
             },
           ],
         },
-        {
-          id: "roms",
-          selectableScene: true,
-          heading: {
-            text: "ROMs",
-          },
-          items: [
-            {
-              text: "Source: dmatlack/chip8",
-              iconID: "githubIcon",
-              classes: ["source", "clickable"],
-              callback: () => {
-                window.open("https://github.com/dmatlack/chip8/");
-              },
-            },
-            {
-              text: "Demos",
-              iconID: "demoIcon",
-              open: "demos",
-            },
-            {
-              text: "Games",
-              iconID: "gamesIcon",
-              open: "games",
-            },
-            {
-              text: "Programs",
-              iconID: "programIcon",
-              open: "programs",
-            },
-          ],
-        },
         ...this.getROMsConfig(),
         this.getThemeConfig(),
       ],
       menuCon
     );
 
+    const customROMInput = document.getElementById(
+      "customROM"
+    ) as HTMLInputElement;
+
     // Load the selected ROM from local storage
     const selectedROM = localStorage.getItem("selectedROM");
     const selectedROMType = localStorage.getItem("selectedROMType");
 
     if (selectedROM && selectedROMType) {
-      this.loadROM(
-        selectedROMType as "demos" | "games" | "programs",
-        selectedROM
-      );
+      if (selectedROMType === "custom") {
+        try {
+          const name = localStorage.getItem("selectedROMName")!;
+          const buffer = base64ToArrayBuffer(selectedROM);
 
-      if (selectedROM in this.dMenu.selections) {
-        this.dMenu.selections[selectedROM].select();
+          this.loadCustomBuffer(buffer, name);
+        } catch (e) {
+          console.error(e);
+          alert("Error loading custom ROM");
+        }
+      } else {
+        this.loadROM(
+          selectedROMType as "demos" | "games" | "programs",
+          selectedROM
+        );
+
+        if (selectedROM in this.dMenu.selections) {
+          this.dMenu.selections[selectedROM].select();
+        }
       }
     }
 
@@ -291,6 +275,8 @@ export class EmuMenu {
 
     // Add event listeners
     menuIcon.addEventListener("click", this.open.bind(this));
+
+    customROMInput.addEventListener("change", this.loadCustomROM.bind(this));
 
     window.addEventListener("resize", () => {
       this.changeScale();
@@ -456,6 +442,48 @@ export class EmuMenu {
   getROMsConfig() {
     return [
       {
+        id: "roms",
+        selectableScene: true,
+        heading: {
+          text: "ROMs",
+        },
+        items: [
+          {
+            text: "Source: dmatlack/chip8",
+            iconID: "githubIcon",
+            classes: ["source", "clickable"],
+            callback: () => {
+              window.open("https://github.com/dmatlack/chip8/");
+            },
+          },
+          {
+            text: "Demos",
+            iconID: "demoIcon",
+            open: "demos",
+          },
+          {
+            text: "Games",
+            iconID: "gamesIcon",
+            open: "games",
+          },
+          {
+            text: "Programs",
+            iconID: "programIcon",
+            open: "programs",
+          },
+          {
+            html: `
+                <label for="customROM">
+                  <div id="customROMLabel">Custom ROM</div>
+                </label>
+                <input type="file" id="customROM" accept=".ch8, .c8">
+                <div class="menuItemValue" id="customROMValue"></div>
+              `,
+            classes: ["clickable"],
+          },
+        ],
+      },
+      {
         id: "demos",
         selectableScene: true,
         heading: {
@@ -517,7 +545,7 @@ export class EmuMenu {
    *
    * @param selectedScene the scene whose selections should be preserved
    */
-  deselectMenuROMs(selectedScene: "demos" | "games" | "programs") {
+  deselectMenuROMs(selectedScene: "demos" | "games" | "programs" | "custom") {
     const scenes = ["demos", "games", "programs"];
 
     for (const scene of scenes) {
@@ -562,6 +590,56 @@ export class EmuMenu {
 
     localStorage.setItem("selectedROM", name);
     localStorage.setItem("selectedROMType", type);
+
+    document.getElementById("customROMValue")!.innerText = "";
+  }
+
+  /**
+   * Loads a custom ROM
+   */
+  async loadCustomROM(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const buffer = reader.result as ArrayBuffer;
+      const name = file.name;
+
+      this.loadCustomBuffer(buffer, name);
+    };
+
+    reader.onerror = () => {
+      alert("Error reading the file");
+    };
+
+    reader.readAsArrayBuffer(file);
+  }
+
+  async loadCustomBuffer(buffer: ArrayBuffer, name: string) {
+    const programBuffer = buffer;
+    const program = new Uint8Array(programBuffer);
+
+    if (program.byteLength > 4096 - 0x200) {
+      alert(
+        "The program is too large to fit in memory. Most likely not a CHIP-8 program."
+      );
+      return;
+    }
+
+    localStorage.setItem("selectedROM", arrayBufferToBase64(programBuffer));
+
+    this.chip8Host.loadProgram(program);
+    this.deselectMenuROMs("custom");
+    this.dMenu.selectedValuesDOM.roms.elements[0].innerText = name;
+
+    localStorage.setItem("selectedROMName", name);
+    localStorage.setItem("selectedROMType", "custom");
+
+    document.getElementById("customROMValue")!.innerText = name;
   }
 
   async fetchProgram(url: string) {
