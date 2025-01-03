@@ -473,13 +473,16 @@ export class EmuMenu {
           },
           {
             html: `
-                <label for="customROM">
-                  <div id="customROMLabel">Custom ROM</div>
+                <label for="customROM" id="cusomROMLabel">
+                  <div>Custom ROM</div>
                 </label>
                 <input type="file" id="customROM" accept=".ch8, .c8">
                 <div class="menuItemValue" id="customROMValue"></div>
               `,
             classes: ["clickable"],
+            callback: () => {
+              document.getElementById("cusomROMLabel")!.click();
+            }
           },
         ],
       },

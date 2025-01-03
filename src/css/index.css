@@ -54,7 +54,7 @@ canvas {
   display: none;
 }
 
-#customROMLabel {
+#customROMLabel div {
   width: 300px;
 }
 
