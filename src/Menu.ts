@@ -3,7 +3,10 @@ import { CHIP8Host } from "./Chip8Host";
 import { hexToRGBA } from "./helper";
 
 export class EmuMenu {
+  // Whether the menu is open
   isOpen = localStorage.getItem("menu-isOpen") === "true";
+
+  // Colors for themes
   customColors = [
     {
       name: "Palette #1",
@@ -36,12 +39,26 @@ export class EmuMenu {
       secondary: "#FFFFFF",
     },
   ];
+
+  // An instance of the drop down menu
   dMenu: dropDownMenu;
+
+  // The container element where the emulator canvas is displayed
   container: HTMLElement;
-  displayElement: HTMLElement;
+
+  // The emulator canvas element
+  displayElement: HTMLCanvasElement;
+
+  // The container element where the drop down menu is displayed
   menuCon: HTMLElement;
+
+  // The icon which opens the menu
   menuIcon: HTMLElement;
+
+  // The CHIP-8 host instance
   chip8Host: CHIP8Host;
+
+  // A list of programs loaded from the dmatlack/chip8 repository
   programs = {
     demos: [
       "Maze (alt) [David Winter, 199x].ch8",
@@ -154,7 +171,7 @@ export class EmuMenu {
     container: HTMLElement,
     menuCon: HTMLElement,
     menuIcon: HTMLElement,
-    display: HTMLElement,
+    display: HTMLCanvasElement,
     chip8Host: CHIP8Host
   ) {
     const config = chip8Host.config;
@@ -164,8 +181,9 @@ export class EmuMenu {
     this.chip8Host = chip8Host;
     this.menuCon = menuCon;
     this.menuIcon = menuIcon;
-    this.changeScale();
     this.container = container;
+    this.changeScale();
+
     this.dMenu = new dropDownMenu(
       [
         {
@@ -251,6 +269,7 @@ export class EmuMenu {
       menuCon
     );
 
+    // Load the selected ROM from local storage
     const selectedROM = localStorage.getItem("selectedROM");
     const selectedROMType = localStorage.getItem("selectedROMType");
 
@@ -265,25 +284,32 @@ export class EmuMenu {
       }
     }
 
+    // If the theme is custom, show the custom color pickers
     if (config.theme === "theme-custom") {
       this.showCustomColorPickers();
     }
 
+    // Add event listeners
     menuIcon.addEventListener("click", this.open.bind(this));
 
     window.addEventListener("resize", () => {
       this.changeScale();
     });
 
+    // Initialize the menu to show the initial scene
     this.dMenu.open("initial");
 
-    if(this.isOpen) {
-      this.open(); 
+    // Open the menu if it was open last time
+    if (this.isOpen) {
+      this.open();
     } else {
       this.close();
     }
   }
 
+  /**
+   * Open the menu
+   */
   open() {
     this.menuCon.style.transform = "translateX(0)";
     this.menuIcon.style.right = "-60px";
@@ -293,6 +319,9 @@ export class EmuMenu {
     localStorage.setItem("menu-isOpen", "true");
   }
 
+  /**
+   * Close the menu
+   */
   close() {
     this.menuCon.style.transform = "translateX(100%)";
     this.menuIcon.style.right = "10px";
@@ -302,6 +331,10 @@ export class EmuMenu {
     localStorage.setItem("menu-isOpen", "false");
   }
 
+  /**
+   * Changes the scale of the 64x32 display to fit the container
+   * and centers it
+   */
   changeScale() {
     const scale = this.calculateCanvasScale();
     const container = this.container;
@@ -312,14 +345,16 @@ export class EmuMenu {
         Display.WIDTH * scale) /
       2;
     const translateY = (container.offsetHeight - Display.HEIGHT * scale) / 2;
+    const centerPercentage = (100 * scale) / 2 - 50;
 
-    display.style.transform = `translate(calc(${
-      (100 * scale) / 2 - 50
-    }% + ${translateX}px), calc(${
-      (100 * scale) / 2 - 50
-    }% + ${translateY}px)) scale(${scale})`;
+    display.style.transform = `translate(calc(${centerPercentage}% + ${translateX}px), calc(${centerPercentage}% + ${translateY}px)) scale(${scale})`;
   }
 
+  /**
+   * Returns the scene configuration for the theme settings
+   *
+   * @returns The theme configuration for DropDownMenu
+   */
   getThemeConfig() {
     const config = this.chip8Host.config;
 
@@ -365,7 +400,9 @@ export class EmuMenu {
             localStorage.setItem("theme", "theme-custom");
 
             const primaryColor = localStorage.getItem("custom-primaryColor");
-            const secondaryColor = localStorage.getItem("custom-secondaryColor");
+            const secondaryColor = localStorage.getItem(
+              "custom-secondaryColor"
+            );
 
             this.changeConfig({
               primaryColor: hexToRGBA(primaryColor || "#000000"),
@@ -411,6 +448,11 @@ export class EmuMenu {
     };
   }
 
+  /**
+   * Returns the scene configuration for the ROMs settings
+   *
+   * @returns The ROMs configuration for DropDownMenu
+   */
   getROMsConfig() {
     return [
       {
@@ -455,6 +497,12 @@ export class EmuMenu {
     ];
   }
 
+  /**
+   * Returns the scale of the canvas based on the container size so that
+   * the CHIP-8 display fits within the container
+   *
+   * @returns The scale of the canvas
+   */
   calculateCanvasScale() {
     return Math.min(
       Math.floor(
@@ -464,6 +512,11 @@ export class EmuMenu {
     );
   }
 
+  /**
+   * Deselects all other scenes in the ROMs menu
+   *
+   * @param selectedScene the scene whose selections should be preserved
+   */
   deselectMenuROMs(selectedScene: "demos" | "games" | "programs") {
     const scenes = ["demos", "games", "programs"];
 
@@ -482,6 +535,9 @@ export class EmuMenu {
     }
   }
 
+  /**
+   * Shows the custom color pickers
+   */
   showCustomColorPickers() {
     const customColorPicker = document.getElementsByClassName("custom-color");
 
@@ -490,6 +546,9 @@ export class EmuMenu {
     }
   }
 
+  /**
+   * Loads a ROM from the dmatlack/chip8 repository
+   */
   async loadROM(type: "demos" | "games" | "programs", name: string) {
     const programURL = encodeURI(
       `https://raw.githubusercontent.com/dmatlack/chip8/refs/heads/master/roms/${type}/${name}`
@@ -511,6 +570,11 @@ export class EmuMenu {
     return new Uint8Array(buffer);
   }
 
+  /**
+   * Changes the configuration of the CHIP-8 host
+   *
+   * @param config The new configuration
+   */
   changeConfig(config: Partial<CHIP8Host["config"]>) {
     this.chip8Host.postMessage({
       action: "config",

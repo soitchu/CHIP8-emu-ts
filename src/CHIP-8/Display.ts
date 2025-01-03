@@ -32,31 +32,63 @@ export abstract class Display {
   primaryColor: number[] = [0x8d, 0xc6, 0xff];
   secondaryColor: number[] = [0x0, 0x0, 0x0];
 
+  // Whether printDisplay was called more than once in 1/60th of a second
   queuePrint: boolean = false;
 
+  /**
+   * Draw a pixel on the display
+   *
+   * @param x x-coordinate
+   * @param y y-coordinate
+   * @param r red color value
+   * @param g green color value
+   * @param b blue color value
+   */
   abstract draw(x: number, y: number, r: number, g: number, b: number): void;
+
+  /**
+   * Clear the display and fill it with the secondary color.
+   */
   abstract clear(): void;
+
+  /**
+   * Print the display to the screen
+   */
   abstract flush(): void;
 
+  /**
+   * Reset the display
+   */
   reset(): void {
     this.displayState.fill(0);
     this.prevDisplay.fill(0);
     this.powerLevel.fill(0);
   }
 
+  /**
+   * Print the display if it was queued
+   */
   printIfQueued(): void {
     if (this.queuePrint) {
       this.print();
     }
   }
 
+  /**
+   * Print the display
+   */
   print(): void {
+    // Limit the print rate to 60fps
     if (performance.now() - this.lastDrawTime < 1000 / 60) {
+      // Queue the print operation if it was called more than once in 1/60th of a second
       this.queuePrint = true;
       return;
     }
 
+    // Reset the queue flag
     this.queuePrint = false;
+
+    // Update the last draw time
     this.lastDrawTime = performance.now();
 
     const primaryColor = this.primaryColor;
@@ -87,7 +119,7 @@ export abstract class Display {
         // be multiplied by the color values
         const normalizedPowerLevel = newPowerLevel / 255;
 
-        if(normalizedPowerLevel > 0) {
+        if (normalizedPowerLevel > 0) {
           hadGhostPixels = true;
         }
 
@@ -104,9 +136,9 @@ export abstract class Display {
       }
     }
 
-    if(hadGhostPixels) {
+    if (hadGhostPixels) {
       this.queuePrint = true;
-    } 
+    }
 
     // Flush the display to the screen
     this.flush();

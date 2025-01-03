@@ -19,6 +19,9 @@ export interface EmuConfig {
 export class CHIP8Emulator {
   SIXTY_HZ = 1000 / 60;
 
+  /**
+   * How many instructions to run per second
+   */
   tickRate = 1000;
 
   /**
@@ -1164,6 +1167,11 @@ export class CHIP8Emulator {
           return;
         }
       }
+    }
+
+    if (this.restartOnEnd) {
+      this.pc = 0x200;
+      this.execute();
     }
   }
 

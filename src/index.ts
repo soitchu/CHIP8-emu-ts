@@ -1,5 +1,4 @@
 import { CHIP8Host } from "./Chip8Host";
-import { Display } from "./CHIP-8/Display";
 import { EmuMenu } from "./Menu";
 
 const menuCon = document.getElementById("menuCon")!;

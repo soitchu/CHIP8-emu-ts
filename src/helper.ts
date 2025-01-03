@@ -1,4 +1,7 @@
 // https://v8.dev/features/atomics
+/**
+ * An implementation of a mutex using Atomics
+ */
 export class Mutex {
     private buffer: SharedArrayBuffer;
     private lockArray: Int32Array;
@@ -30,6 +33,11 @@ export class Mutex {
   }
 }
 
+/**
+ * Convert a hexadecimal color to an RGB array
+ * @param hex The hexadecimal color
+ * @returns An array of RGB values
+ */
 export function hexToRGBA(hex: string) {
   // Remove the '#' if present
   if (hex.startsWith("#")) {
