@@ -7,7 +7,12 @@ NOTE: Since `SharedArrayBuffer` is used, the website must be served with the app
 The entirety of the emulator source code is located in [src/CHIP-8](src/CHIP-8/). The rest of the code in `src` is used to run the emulator on the web.
 
 ## Development
-To run the emulator locally, run the following commands:
+Clone the repository:
+```bash
+   git clone --recurse-submodules
+```
+
+And To run the emulator locally, run the following commands:
 ```bash
    npm install
    npm run dev
@@ -15,6 +20,11 @@ To run the emulator locally, run the following commands:
 
 
 ## Hosting
+Clone the repository:
+```bash
+   git clone --recurse-submodules
+```
+
 The website can be built using the following command:
 ```bash
    npm run build
