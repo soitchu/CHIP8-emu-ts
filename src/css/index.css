@@ -70,6 +70,7 @@ canvas {
   left: 0;
   height: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   color: white;
@@ -78,6 +79,8 @@ canvas {
   padding: 20px;
   box-sizing: border-box;
   text-align: center;
+  position: absolute;
+  z-index: 1;
 }
 
 #romInstructions.close {
@@ -90,4 +93,10 @@ canvas {
 
 code {
   font-size: 14px;
+}
+
+#tetrisLoader {
+  text-decoration: underline;
+  cursor: pointer;
+  z-index: 1000;
 }
