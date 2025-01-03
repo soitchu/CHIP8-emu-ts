@@ -1,7 +1,7 @@
-const file = Bun.file("./program.c8");
 import { expect, test } from "bun:test";
-import { Chips8Emulator, Display, EmuConfig } from "../CHIP-8/emulator/index";
-import { Input } from "../CHIP-8/emulator/Input";
+import { CHIP8Emulator, EmuConfig } from "../src/CHIP-8/index";
+import { Display } from "../src/CHIP-8/Display";
+import { Input } from "../src/CHIP-8/Input";
 
 const emuConfig = {
   display: {
@@ -15,17 +15,17 @@ const emuConfig = {
     keyPress: () => {},
     registerEmulator: () => {},
     isActive: () => {
-        return true;
+      return true;
     },
   } as unknown as Input,
   restartOnEnd: false,
-  debug: true
+  debug: true,
 } as EmuConfig;
 
 const program = new Uint8Array([]);
 
 test("skipIf", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x3100);
 
@@ -36,7 +36,7 @@ test("skipIf", async () => {
 });
 
 test("skipNotIf", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x4100);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SNE V1, 00");
@@ -46,7 +46,7 @@ test("skipNotIf", async () => {
 });
 
 test("compareRegisters", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.registers[1] = 0x20;
   emu.registers[2] = 0x20;
@@ -56,7 +56,7 @@ test("compareRegisters", async () => {
 });
 
 test("loadRegister", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x6120);
 
@@ -64,7 +64,7 @@ test("loadRegister", async () => {
 });
 
 test("add", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x7155);
 
@@ -72,7 +72,7 @@ test("add", async () => {
 });
 
 test("loadRegisterFromRegister", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8120);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD V1, V2");
@@ -82,7 +82,7 @@ test("loadRegisterFromRegister", async () => {
 });
 
 test("or", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8121);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("OR V1, V2");
@@ -92,7 +92,7 @@ test("or", async () => {
 });
 
 test("and", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8122);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("AND V1, V2");
@@ -102,7 +102,7 @@ test("and", async () => {
 });
 
 test("xor", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8123);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("XOR V1, V2");
@@ -112,7 +112,7 @@ test("xor", async () => {
 });
 
 test("addRegisters", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8124);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("ADD V1, V2");
@@ -122,7 +122,7 @@ test("addRegisters", async () => {
 });
 
 test("subRegisters", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8125);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SUB V1, V2");
@@ -132,7 +132,7 @@ test("subRegisters", async () => {
 });
 
 test("shiftRight", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8126);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SHR V1 {, V2}");
@@ -142,7 +142,7 @@ test("shiftRight", async () => {
 });
 
 test("subRegistersReverse", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x8127);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SUBN V1, V2");
@@ -152,7 +152,7 @@ test("subRegistersReverse", async () => {
 });
 
 test("shiftLeft", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x812e);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SHL V1 {, V2}");
@@ -162,7 +162,7 @@ test("shiftLeft", async () => {
 });
 
 test("skipIfNotEqualRegisters", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0x9120);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SNE V1, V2");
@@ -172,7 +172,7 @@ test("skipIfNotEqualRegisters", async () => {
 });
 
 test("changeI", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xa120);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD I, 120");
@@ -182,7 +182,7 @@ test("changeI", async () => {
 });
 
 test("jmpByOffsetV0", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xb120);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("JMP V0, 120");
@@ -192,7 +192,7 @@ test("jmpByOffsetV0", async () => {
 });
 
 test("randomAnd", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xc120);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("RND V1, 20");
@@ -202,7 +202,7 @@ test("randomAnd", async () => {
 });
 
 test("draw", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xd126);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("DRW V1, V2, 06");
@@ -212,7 +212,7 @@ test("draw", async () => {
 });
 
 test("skipIfKeyPressed", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xe29e);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SKP V2");
@@ -222,7 +222,7 @@ test("skipIfKeyPressed", async () => {
 });
 
 test("skipIfKeyPressed", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xe2a1);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("SKNP V2");
@@ -232,7 +232,7 @@ test("skipIfKeyPressed", async () => {
 });
 
 test("readDelayIntoRegister", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf207);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD V2, DT");
@@ -242,7 +242,7 @@ test("readDelayIntoRegister", async () => {
 });
 
 test("readKeyIntoRegister", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   await emu.executeInstruction(0xf20a);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD V2, K");
@@ -252,7 +252,7 @@ test("readKeyIntoRegister", async () => {
 });
 
 test("loadRegisterIntoDelayTimer", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf215);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD DT, V2");
@@ -262,7 +262,7 @@ test("loadRegisterIntoDelayTimer", async () => {
 });
 
 test("loadRegisterIntoSoundTimer", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf218);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD ST, V2");
@@ -272,7 +272,7 @@ test("loadRegisterIntoSoundTimer", async () => {
 });
 
 test("addRegisterToI", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf21e);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("ADD I, V2");
@@ -282,7 +282,7 @@ test("addRegisterToI", async () => {
 });
 
 test("assignIToSpriteMemory", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf229);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD F, V2");
@@ -292,7 +292,7 @@ test("assignIToSpriteMemory", async () => {
 });
 
 test("storeDigitsAtI", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf233);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD B, V2");
@@ -303,7 +303,7 @@ test("storeDigitsAtI", async () => {
 });
 
 test("storeRegistersAtI", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf255);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD [I], V2");
@@ -314,7 +314,7 @@ test("storeRegistersAtI", async () => {
 });
 
 test("loadRegisterFromI", async () => {
-  const emu = new Chips8Emulator(program, emuConfig);
+  const emu = new CHIP8Emulator(program, emuConfig);
 
   emu.executeInstruction(0xf265);
   expect(emu.instrTrace[emu.instrTrace.length - 1]).toEqual("LD V2, [I]");
