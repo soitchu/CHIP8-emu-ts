@@ -29,3 +29,22 @@ export class Mutex {
     Atomics.notify(this.lockArray, 0);
   }
 }
+
+export function hexToRGBA(hex: string) {
+  // Remove the '#' if present
+  if (hex.startsWith("#")) {
+    hex = hex.slice(1);
+  }
+
+  // Check the length of the hex code
+  if (hex.length !== 6) {
+    throw new Error("Invalid hexadecimal color format. Use #RRGGBB.");
+  }
+
+  // Parse the RGB values
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  return [r, g, b];
+}
