@@ -1,8 +1,8 @@
 {
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "vite build",
+    "start": "node server/index.js"
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",
