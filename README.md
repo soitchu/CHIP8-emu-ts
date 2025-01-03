@@ -9,7 +9,7 @@ The entirety of the emulator source code is located in [src/CHIP-8](src/CHIP-8/)
 ## Development
 Clone the repository:
 ```bash
-   git clone --recurse-submodules
+   git clone https://github.com/soitchu/CHIP8-emu-ts --recurse-submodules
 ```
 
 And To run the emulator locally, run the following commands:
@@ -22,7 +22,7 @@ And To run the emulator locally, run the following commands:
 ## Hosting
 Clone the repository:
 ```bash
-   git clone --recurse-submodules
+   git clone https://github.com/soitchu/CHIP8-emu-ts --recurse-submodules
 ```
 
 The website can be built using the following command:
