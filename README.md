@@ -27,6 +27,7 @@ Clone the repository:
 
 The website can be built using the following command:
 ```bash
+   npm install
    npm run build
 ```
 
