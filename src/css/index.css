@@ -64,6 +64,30 @@ canvas {
   margin-top: 10px;
 }
 
+#romInstructions {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-family: 'Raleway', sans-serif;
+  font-weight: bold;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#romInstructions.close {
+  width: 100%;
+}
+
+#romInstructions.open {
+  width: calc(100% - 300px);
+}
+
 code {
   font-size: 14px;
 }

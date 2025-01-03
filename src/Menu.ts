@@ -4,7 +4,7 @@ import { arrayBufferToBase64, base64ToArrayBuffer, hexToRGBA } from "./helper";
 
 export class EmuMenu {
   // Whether the menu is open
-  isOpen = localStorage.getItem("menu-isOpen") === "true";
+  isOpen = localStorage.getItem("menu-isOpen") !== "false";
 
   // Colors for themes
   customColors = [
@@ -57,6 +57,9 @@ export class EmuMenu {
 
   // The CHIP-8 host instance
   chip8Host: CHIP8Host;
+
+  // The initial instructions to load ROMs
+  romInstructions: HTMLElement;
 
   // A list of programs loaded from the dmatlack/chip8 repository
   programs = {
@@ -182,6 +185,7 @@ export class EmuMenu {
     this.menuCon = menuCon;
     this.menuIcon = menuIcon;
     this.container = container;
+    this.romInstructions = document.getElementById("romInstructions")!;
     this.changeScale();
 
     this.dMenu = new dropDownMenu(
@@ -330,6 +334,9 @@ export class EmuMenu {
     this.changeScale();
 
     localStorage.setItem("menu-isOpen", "true");
+
+    this.romInstructions.classList.remove("close");
+    this.romInstructions.classList.add("open");
   }
 
   /**
@@ -342,6 +349,9 @@ export class EmuMenu {
     this.changeScale();
 
     localStorage.setItem("menu-isOpen", "false");
+
+    this.romInstructions.classList.remove("open");
+    this.romInstructions.classList.add("close");
   }
 
   /**
@@ -621,6 +631,7 @@ export class EmuMenu {
     localStorage.setItem("selectedROM", name);
     localStorage.setItem("selectedROMType", type);
 
+    this.romInstructions.innerHTML = "";
     document.getElementById("customROMValue")!.innerText = "";
   }
 
@@ -669,6 +680,7 @@ export class EmuMenu {
     localStorage.setItem("selectedROMName", name);
     localStorage.setItem("selectedROMType", "custom");
 
+    this.romInstructions.innerHTML = "";
     document.getElementById("customROMValue")!.innerText = name;
   }
 
