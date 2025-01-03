@@ -220,19 +220,46 @@ export class EmuMenu {
               },
             },
             {
-              text: "Tick Rate",
+              html: "Instructions per second <br/> (-1 to uncap)",
               textBox: true,
               value: config.tickRate.toString(),
               onInput: (event: InputEvent) => {
+                const value = parseInt((event.target as HTMLInputElement).value);
+
                 this.changeConfig({
-                  tickRate: parseInt((event.target as HTMLInputElement).value),
+                  tickRate: isNaN(value) ? -1 : value,
                 });
               },
             },
+            {
+              text: "Controls",
+              iconID: "controlsIcon",
+              open: "controls",
+            }
           ],
         },
         ...this.getROMsConfig(),
         this.getThemeConfig(),
+        {
+          id: "controls",
+          heading: {
+            text: "Controls",
+          },
+          items: [
+            {
+              html: `The controls are mapped to the following keys:
+              <br/> <br/>
+              <code>
+                1, 2, 3, 4 <br/>
+                Q, W, E, R <br/>
+                A, S, D, F <br/>
+                Z, X, C, V <br/>
+              </code>
+              </pre>
+              `,
+            }
+          ]
+        },
       ],
       menuCon
     );
