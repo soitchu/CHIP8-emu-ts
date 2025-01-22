@@ -3,6 +3,9 @@ The emulator is written in Typescript. It uses two web workers: one for the emul
 
 NOTE: Since `SharedArrayBuffer` is used, the website must be served with the appropriate headers for things to work properly. Refer to [this](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer) for more information.
 
+# Demo
+https://emu.soitchu.com/
+
 ## Repository Structure
 The entirety of the emulator source code is located in [src/CHIP-8](src/CHIP-8/). The rest of the code in `src` is used to run the emulator on the web.
 
